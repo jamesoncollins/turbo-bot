@@ -135,9 +135,32 @@ def is_youtube_domain(msg):
     else:
         return None
 
+
+def print_file(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            # Read the content of the file
+            file_content = file.read()
+            
+            # Print the content
+            print(&quot;File Content:\n&quot;, file_content)
+            
+            return file_content
+
+    except FileNotFoundError:
+        print(f&quot;File '{file_path}' not found.&quot;)
+    except Exception as e:
+        print(f&quot;An error occurred: {e}&quot;)
+        
+    return None
+
+
 class PingCommand(Command):
     async def handle(self, c: Context):
-        pprint(vars(c.message.group))
+        try:
+            print(vars(c.message.group))
+        except:
+            pass
         msg = c.message.text
         senderName = c.message.raw_message.envelope.senderName
         senderNumber = c.message.raw_message.envelope.senderNumber
@@ -167,7 +190,10 @@ class PingCommand(Command):
             recent_data = yf.download(tickers, period="1y")            
             recent_data['Close'].plot()
             plt.savefig("//tmp//tick.png")
-            await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])   
+            await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])  
+        elif "#mmw" == msg:
+            mmw = print_file("mmw.txt")
+            await c.send("History: \n" + mmw)            
         elif "#mmw" in msg:
             await c.send(senderName + "(" + senderNumber + ")" " Says Mark My Words: \n" + msg)
             with open("mmw.txt", "a") as file:
