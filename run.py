@@ -20,7 +20,7 @@ def get_insta_sessionid():
 
 def download_youtube_video(link):
     # where to save 
-    SAVE_PATH = "/tmp/youtube/youtube.mp4"
+    SAVE_PATH = "youtube.mp4"
 
     try: 
         # object creation using YouTube 
