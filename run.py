@@ -162,6 +162,7 @@ class PingCommand(Command):
         except:
             pass
         msg = c.message.text
+        print(vars(c.message))
         senderName = c.message.raw_message["envelope"]["senderName"]
         senderNumber = c.message.raw_message["envelope"]["senderNumber"]
         #print(msg)
