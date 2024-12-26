@@ -26,4 +26,4 @@ matplotlib
 redvid
 requests
 insta-share==0.0.1
-pytube
+pytubefix

@@ -9,8 +9,7 @@ import matplotlib.pyplot as plt
 import base64
 from redvid import Downloader
 from insta_share import Instagram
-from pytube import YouTube 
-from pprint import pprint
+from pytubefix import YouTube
 
 def get_insta_sessionid():
     insta = Instagram()
