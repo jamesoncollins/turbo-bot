@@ -198,9 +198,10 @@ class PingCommand(Command):
             mmw = print_file(f"mmw{groupId}.txt")
             await c.send("History: \n" + mmw)            
         elif "#mmw" in msg and groupId:
-            await c.send(sourceName + "(" + sourceNumber + ")" " Says Mark My Words: \n" + msg)
+            mmw = sourceName + "(" + sourceNumber + "): " + msg
+            await c.send(mmw)
             with open(f"mmw{groupId}.txt", "a") as file:
-                file.write(msg+"\n")
+                file.write(mmw+"\n")
         elif msg == "#":
             await c.send("I am here.")            
         elif msg == "#turboboot":
