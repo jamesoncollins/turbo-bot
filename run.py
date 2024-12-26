@@ -143,14 +143,14 @@ def print_file(file_path):
             file_content = file.read()
             
             # Print the content
-            print(&quot;File Content:\n&quot;, file_content)
+            #print(&quot;File Content:\n&quot;, file_content)
             
             return file_content
 
     except FileNotFoundError:
-        print(f&quot;File '{file_path}' not found.&quot;)
+        pass #print(f&quot;File '{file_path}' not found.&quot;)
     except Exception as e:
-        print(f&quot;An error occurred: {e}&quot;)
+        pass #print(f&quot;An error occurred: {e}&quot;)
         
     return None
 
