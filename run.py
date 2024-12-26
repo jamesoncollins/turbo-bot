@@ -163,8 +163,8 @@ class PingCommand(Command):
             pass
         msg = c.message.text
         print(vars(c.message))
-        senderName = c.message.raw_message["envelope"]["senderName"]
-        senderNumber = c.message.raw_message["envelope"]["senderNumber"]
+        sourceName = c.message.raw_message["envelope"]["sourceName"]
+        sourceNumber = c.message.raw_message["envelope"]["sourceNumber"]
         #print(msg)
         if msg == "Ping":
             await c.send("Pong")
@@ -196,7 +196,7 @@ class PingCommand(Command):
             mmw = print_file("mmw.txt")
             await c.send("History: \n" + mmw)            
         elif "#mmw" in msg:
-            await c.send(senderName + "(" + senderNumber + ")" " Says Mark My Words: \n" + msg)
+            await c.send(sourceName + "(" + sourceNumber + ")" " Says Mark My Words: \n" + msg)
             with open("mmw.txt", "a") as file:
                 file.write(msg+"\n")
         elif msg == "#":
