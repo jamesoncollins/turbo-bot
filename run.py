@@ -160,6 +160,7 @@ class PingCommand(Command):
         groupId = None
         try:
             groupId = c.message.group
+            groupId.replace("\\", "\\\\")
         except:
             pass
         msg = c.message.text
