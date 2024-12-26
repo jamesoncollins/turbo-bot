@@ -137,9 +137,10 @@ def is_youtube_domain(msg):
 
 class PingCommand(Command):
     async def handle(self, c: Context):
-        pprint(vars(c))
-        pprint(vars(c.message))
+        pprint(vars(c.message.group))
         msg = c.message.text
+        senderName = c.message.raw_message.envelope.senderName
+        senderNumber = c.message.raw_message.envelope.senderNumber
         #print(msg)
         if msg == "Ping":
             await c.send("Pong")
@@ -168,7 +169,7 @@ class PingCommand(Command):
             plt.savefig("//tmp//tick.png")
             await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])   
         elif "#mmw" in msg:
-            await c.send(c.message.sender_name + " Says Mark My Words: \n" + msg)
+            await c.send(senderName + "(" + senderNumber + ")" " Says Mark My Words: \n" + msg)
             with open("mmw.txt", "a") as file:
                 file.write(msg+"\n")
         elif msg == "#":
