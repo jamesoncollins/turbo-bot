@@ -20,30 +20,19 @@ def get_insta_sessionid():
 
 def download_youtube_video(link):
     # where to save 
-    SAVE_PATH = "/tmp/youtube/youtube.mp4" #to_do 
+    SAVE_PATH = "/tmp/youtube/youtube.mp4"
 
     try: 
         # object creation using YouTube 
         yt = YouTube(link) 
-    except: 
-        #to handle exception 
-        print("Connection Error") 
-
-    # Get all streams and filter for mp4 files
-    mp4_streams = yt.streams.filter(file_extension='mp4').all()
-
-    # get the video with the highest resolution
-    d_video = mp4_streams[-1]
-
-    try: 
-        # downloading the video 
-        d_video.download(output_path=SAVE_PATH)
-        print('Video downloaded successfully!')
-        return SAVE_PATH
+        ys = yt.streams.get_highest_resolution()        
+        ys.download(output_path=SAVE_PATH)
+        print('Video downloaded successfully!')        
     except: 
         print("Some Error!")
-    
-    return None
+        return None    
+        
+    return SAVE_PATH
 
 def download_reddit_video(url):
     fname = "reddit.mp4"
