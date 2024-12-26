@@ -20,7 +20,7 @@ def get_insta_sessionid():
 
 def download_youtube_video(link):
     # where to save 
-    SAVE_PATH = "."
+    SAVE_PATH = "./"
 
     try: 
         # object creation using YouTube 
@@ -28,8 +28,8 @@ def download_youtube_video(link):
         ys = yt.streams.get_highest_resolution()        
         ys.download(filename="youtube.mp4", output_path=SAVE_PATH)
         print('Video downloaded successfully!')        
-    except: 
-        print("Some Error!")
+    except Exception as ex:
+        print(ex)
         return None    
         
     return SAVE_PATH + "/youtube.mp4"
