@@ -1,0 +1,44 @@
+version: "3"
+services:
+  signal-cli:
+    container_name: signal-cli
+    image: bbernhard/signal-cli-rest-api:latest
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    environment:
+      #- MODE=normal #supported modes: json-rpc, native, normal
+      - MODE=json-rpc
+      #- AUTO_RECEIVE_SCHEDULE=0 22 * * * #enable this parameter on demand (see description below)
+      - PORT=8181
+    ports:
+      - "8181:8181" #map docker port 8080 to host port 8080.
+    volumes:
+      - "signal-cli-data:/home/.local/share/signal-cli"
+
+  signal-bot:
+    container_name: signal-bot
+    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    depends_on:
+      - signal-cli
+    environment:
+      SIGNAL_API_URL: signal-cli:8181 # URL for the signal-cli API
+      BOT_NUMBER: "+1555555555" # The registered Signal number for your bot
+      GROUP_NAME: "MYGROUP"
+      INSTA_USERNAME: "myuser"
+      INSTA_PASSWORD: "mypassword"
+    command: >
+      sh -c "mkdir -p ~/git && cd ~/git && ( git clone https://github.com/jamesoncollins/turbo-bot.git || true ) && cd turbo-bot && git pull && pip install -r requirements.txt && apt -y install $(cat pkglist) && python3 run.py"
+
+volumes:
+  signal-cli-data: # Named volume for persistence
+
+
+
+
+
+# mkdir -p ~/.ssh/ && ssh-keyscan github.com >> ~/.ssh/known_hosts
+#
+
+
