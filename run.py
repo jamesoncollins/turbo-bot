@@ -157,12 +157,13 @@ def print_file(file_path):
 
 class PingCommand(Command):
     async def handle(self, c: Context):
+        groupId = None
         try:
-            print(vars(c.message.group))
+            groupId = c.message.group
         except:
             pass
         msg = c.message.text
-        print(vars(c.message))
+        #print(vars(c.message))
         sourceName = c.message.raw_message["envelope"]["sourceName"]
         sourceNumber = c.message.raw_message["envelope"]["sourceNumber"]
         #print(msg)
@@ -192,12 +193,12 @@ class PingCommand(Command):
             recent_data['Close'].plot()
             plt.savefig("//tmp//tick.png")
             await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])  
-        elif "#mmw" == msg:
-            mmw = print_file("mmw.txt")
+        elif "#mmw" == msg and groupId:
+            mmw = print_file(f"mmw{groupId}.txt")
             await c.send("History: \n" + mmw)            
-        elif "#mmw" in msg:
+        elif "#mmw" in msg and groupId:
             await c.send(sourceName + "(" + sourceNumber + ")" " Says Mark My Words: \n" + msg)
-            with open("mmw.txt", "a") as file:
+            with open(f"mmw{groupId}.txt", "a") as file:
                 file.write(msg+"\n")
         elif msg == "#":
             await c.send("I am here.")            
