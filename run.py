@@ -167,7 +167,7 @@ class PingCommand(Command):
         elif "#mmw" in msg:
             await c.send(c.message.sender_name + " Says Mark My Words: \n" + msg)
             with open("mmw.txt", "a") as file:
-                file.write(msg)
+                file.write(msg+"\n")
         elif msg == "#":
             await c.send("I am here.")            
         elif msg == "#turboboot":
