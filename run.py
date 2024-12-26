@@ -163,7 +163,11 @@ class PingCommand(Command):
             recent_data = yf.download(tickers, period="1y")            
             recent_data['Close'].plot()
             plt.savefig("//tmp//tick.png")
-            await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])            
+            await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])   
+        elif "#mmw" in msg
+            await c.send("Mark My Words: \n" + msg)
+            with open("mmw.txt", "a") as file:
+                file.write(msg)
         elif msg == "#":
             await c.send("I am here.")            
         elif msg == "#turboboot":

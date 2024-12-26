@@ -30,6 +30,8 @@ services:
       INSTA_PASSWORD: "mypassword"
     command: >
       sh -c "mkdir -p ~/git && cd ~/git && ( git clone https://github.com/jamesoncollins/turbo-bot.git || true ) && cd turbo-bot && git pull && pip install -r requirements.txt && apt -y install $(cat pkglist) && python3 run.py"
+    volumes:
+      - signal-cli-data:/root/git/
 
 volumes:
   signal-cli-data: # Named volume for persistence
