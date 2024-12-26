@@ -165,7 +165,7 @@ class PingCommand(Command):
             plt.savefig("//tmp//tick.png")
             await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])   
         elif "#mmw" in msg:
-            await c.send("Mark My Words: \n" + msg)
+            await c.send(c.message.sender_name + " Says Mark My Words: \n" + msg)
             with open("mmw.txt", "a") as file:
                 file.write(msg)
         elif msg == "#":
