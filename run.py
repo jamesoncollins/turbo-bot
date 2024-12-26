@@ -10,6 +10,7 @@ import base64
 from redvid import Downloader
 from insta_share import Instagram
 from pytube import YouTube 
+from pprint import pprint
 
 def get_insta_sessionid():
     insta = Instagram()
@@ -136,6 +137,8 @@ def is_youtube_domain(msg):
 
 class PingCommand(Command):
     async def handle(self, c: Context):
+        pprint(vars(c))
+        pprint(vars(c.message))
         msg = c.message.text
         #print(msg)
         if msg == "Ping":
