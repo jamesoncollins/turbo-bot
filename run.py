@@ -161,6 +161,7 @@ class PingCommand(Command):
         try:
             groupId = c.message.group
             groupId.replace("/", "-&-")
+            groupId.replace("//", "-&-")
         except:
             pass
         msg = c.message.text
