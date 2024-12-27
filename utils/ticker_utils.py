@@ -57,9 +57,24 @@ def extract_ticker_symbols(input_string):
     matches = re.findall(r'\$(\w+)(?:\.(\w+))?', input_string)
     return [(symbol, duration if duration else "1y") for symbol, duration in matches]
 
+def convert_to_get_stock_summary_input(ticker_tuples):
+    """
+    Convert the output of extract_ticker_symbols to the input format expected by get_stock_summary.
+
+    Parameters:
+        ticker_tuples (list of tuples): A list of tuples where each tuple contains a stock ticker symbol and a duration.
+
+    Returns:
+        list of str: A list of stock ticker symbols.
+    """
+    return [symbol for symbol, _ in ticker_tuples]
+
 def plot_stock_data_base64(ticker_symbols):
     """
-    Plot the historical closing prices for a list of ticker symbols and return the plot as a base64 string.
+    Plot the historical closing prices for a list of ticker symbols as percentage changes,
+    ensuring all stocks start at the same point, and mark the dollar values at the beginning and end.
+
+    Always includes $SPY.
 
     Parameters:
         ticker_symbols (list of tuples): A list of tuples where each tuple contains a stock ticker symbol and a duration.
@@ -69,21 +84,32 @@ def plot_stock_data_base64(ticker_symbols):
     """
     plt.figure(figsize=(10, 6))
 
+    # Ensure $SPY is included
+    if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in ticker_symbols):
+        ticker_symbols.append(("SPY", "1y"))
+
     for ticker_symbol, duration in ticker_symbols:
         try:
             # Fetch historical market data
             stock = yf.Ticker(ticker_symbol)
             hist = stock.history(period=duration)
 
-            # Plot closing prices
-            plt.plot(hist.index, hist["Close"], label=f"{ticker_symbol.upper()} ({duration})")
+            # Calculate percentage change and normalize
+            hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
+
+            # Plot normalized closing prices
+            plt.plot(hist.index, hist["Normalized"], label=f"{ticker_symbol.upper()} ({duration})")
+
+            # Mark the starting and ending dollar values
+            plt.text(hist.index[0], hist["Normalized"].iloc[0], f"${hist['Close'].iloc[0]:.2f}", fontsize=8, color="black")
+            plt.text(hist.index[-1], hist["Normalized"].iloc[-1], f"${hist['Close'].iloc[-1]:.2f}", fontsize=8, color="black")
         except Exception as e:
             print(f"An error occurred while fetching data for {ticker_symbol}: {e}")
 
     # Add labels, title, and legend
     plt.xlabel("Date")
-    plt.ylabel("Closing Price (USD)")
-    plt.title("Historical Closing Prices")
+    plt.ylabel("Percentage Change (%)")
+    plt.title("Historical Closing Prices (Normalized)")
     plt.legend()
     plt.grid()
 
@@ -95,20 +121,3 @@ def plot_stock_data_base64(ticker_symbols):
     # Convert file to base64
     base64_string = file_to_base64(filename)
     return base64_string
-
-if __name__ == "__main__":
-    # Prompt the user for input containing ticker symbols
-    input_text = input("Enter a string containing stock ticker symbols prefixed with '$' (e.g., '$AMD.1y $AAPL.6mo'): ").strip()
-
-    # Extract ticker symbols and durations from the input string
-    tickers = extract_ticker_symbols(input_text)
-
-    if tickers:
-        summary = get_stock_summary([symbol for symbol, _ in tickers])
-        print(summary)
-
-        # Generate base64 plot
-        base64_plot = plot_stock_data_base64(tickers)
-        print("Base64 Plot:", base64_plot)
-    else:
-        print(None)

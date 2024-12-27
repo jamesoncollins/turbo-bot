@@ -46,7 +46,8 @@ class PingCommand(Command):
         elif (tickers := extract_ticker_symbols(msg)):
             print("is ticker")
             plot_b64 = plot_stock_data_base64(tickers)
-            await c.reply( LOGMSG + get_stock_summary(tickers), base64_attachments=[plot_b64])  
+            summary = get_stock_summary( convert_to_get_stock_summary_input(tickers) )
+            await c.reply( LOGMSG + summary, base64_attachments=[plot_b64])  
         elif "#gpt" in msg:
             print("is gpt")
             query =  msg.replace("#gpt", "") 
