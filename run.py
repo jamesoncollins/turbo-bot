@@ -43,9 +43,9 @@ class PingCommand(Command):
                     await c.reply( LOGMSG + "failed to download")
             else:
                 await c.reply( LOGMSG + "failed to get url")
-        elif (tickers := find_ticker(msg)):
+        elif (tickers := extract_ticker_symbols(msg)):
             print("is ticker")
-            plot_b64 = get_recent_ticker_data(tickers)
+            plot_b64 = plot_stock_data_base64(tickers)
             await c.reply( LOGMSG + get_stock_summary(tickers), base64_attachments=[plot_b64])  
         elif "#gpt" in msg:
             print("is gpt")
