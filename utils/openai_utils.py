@@ -30,7 +30,7 @@ def save_conversation_history(session_key, history):
     with open(history_file, "w") as file:
         json.dump(history, file, indent=4)
 
-def submit_gpt(user_input, session_key=None, model="gpt-4"):
+def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     """
     Submits user input to the GPT model, maintaining conversation history.
     
