@@ -4,12 +4,10 @@ from openai import OpenAI
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
-
-# Use environment variable for OpenAI API key
+MAX_HISTORY_LENGTH = 50
 
 def get_history_file_path(session_key):
     """Returns the file path for a given session key."""
@@ -21,14 +19,18 @@ def load_conversation_history(session_key):
     history_file = get_history_file_path(session_key)
     if os.path.exists(history_file):
         with open(history_file, "r") as file:
-            return json.load(file)
+            history = json.load(file)
+        # Ensure the history format is valid
+        return history
     return []
 
 def save_conversation_history(session_key, history):
-    """Saves conversation history to a file."""
+    """Saves conversation history to a file with a limit on history length."""
     history_file = get_history_file_path(session_key)
+    # Keep only the most recent messages within the limit
+    trimmed_history = history[-MAX_HISTORY_LENGTH:]
     with open(history_file, "w") as file:
-        json.dump(history, file, indent=4)
+        json.dump(trimmed_history, file, indent=4)
 
 def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     """
