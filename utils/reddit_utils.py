@@ -27,6 +27,8 @@ def convert_shareable_to_comments_link(post_url):
         if response.status_code == 200:
             redirected_url = response.url
             print(f"Redirected to full post URL: {redirected_url}")
+            
+            return redirected_url
 
             # Now fetch the post page from the redirected URL
             response = requests.get(redirected_url, headers=headers)
