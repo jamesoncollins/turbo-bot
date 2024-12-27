@@ -17,6 +17,7 @@ client = OpenAI(
 )
 
 def submit_gpt(query):
+    retval = None
     try:
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -29,11 +30,13 @@ def submit_gpt(query):
             ]
         )
         print(completion.choices[0].message)
-        print(completion["choices"][0]["message"]["content"])
-        return completion["choices"][0]["message"]["content"]
+        message = completion.choices[0].message
+        content_string = message.content
+        retval = content_string
     except:
-        return None
-
+        pass
+    return retval
+    
 def get_insta_sessionid():
     insta = Instagram()
     insta.login(os.environ["INSTA_USERNAME"], os.environ["INSTA_PASSWORD"])
