@@ -40,7 +40,7 @@ def submit_gpt(user_input, session_key=None, model="gpt-4"):
         model (str): The model to use (default: "gpt-4").
         
     Returns:
-        str: The assistant's response as a string.
+        str: The assistant's response along with model details.
     """
     # Initialize conversation history
     if session_key:
@@ -67,5 +67,19 @@ def submit_gpt(user_input, session_key=None, model="gpt-4"):
     if session_key:
         save_conversation_history(session_key, conversation_history)
 
-    # Return the assistant's reply
-    return assistant_message['content']
+    # Prepare model details
+    model_details = {
+        "model": response.get("model", model),  # Model name used in the API response
+        "usage": response.get("usage", {}),    # Token usage details (if available)
+        "session_key": session_key             # Session key for tracking
+    }
+
+    # Format the details for inclusion in the response string
+    details_string = (
+        f"\n\nModel: {model_details['model']}\n"
+        f"Session Key: {model_details['session_key']}\n"
+        f"Token Usage: {model_details['usage']}"
+    )
+
+    # Return the assistant's reply with model details
+    return assistant_message['content'] + details_string
