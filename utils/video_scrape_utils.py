@@ -12,12 +12,6 @@ def download_video(url, save_path):
         for chunk in response.iter_content(chunk_size=8192):
             file.write(chunk)
 
-# Function to convert file to base64 (assuming you have this function)
-def file_to_base64(file_path):
-    import base64
-    with open(file_path, 'rb') as file:
-        return base64.b64encode(file.read()).decode('utf-8')
-
 # Function to extract the video URL from a Reddit post
 def get_video_url(post_url):
     headers = {
