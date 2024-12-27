@@ -10,6 +10,28 @@ import base64
 from redvid import Downloader
 from insta_share import Instagram
 from pytubefix import YouTube
+from openai import OpenAI
+
+client = OpenAI(
+  api_key=os.environ["OPENAI_API_KEY"]
+)
+
+def submit_gpt(query):
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": query
+                }
+            ]
+        )
+        print(completion.choices[0].message)
+        return completion.choices[0].message
+    except:
+        return None
 
 def get_insta_sessionid():
     insta = Instagram()
@@ -182,6 +204,10 @@ class PingCommand(Command):
             recent_data['Close'].plot()
             plt.savefig("//tmp//tick.png")
             await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])  
+        elif "#gpt" in msg:
+            query =  msg.replace("#gpt", "") 
+            res = submit_gpt(query)
+            await c.reply(res)
         elif "#mmw" == msg and groupId:
             mmw = print_file(f"mmw{groupId}.txt")
             await c.send("History: \n" + mmw)            

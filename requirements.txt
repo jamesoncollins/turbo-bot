@@ -27,3 +27,4 @@ redvid
 requests
 insta-share==0.0.1
 pytubefix
+openai
