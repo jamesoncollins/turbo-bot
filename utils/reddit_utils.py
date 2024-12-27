@@ -1,4 +1,4 @@
-from misc_utils import *
+from utils.misc_utils import *
 from redvid import Downloader
 
 def is_reddit_domain(msg):

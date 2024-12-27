@@ -1,4 +1,4 @@
-from misc_utils import *
+from utils.misc_utils import *
 from pytubefix import YouTube
 
 def download_youtube_video(link):
