@@ -16,24 +16,28 @@ def is_reddit_domain(msg):
 def download_reddit_video_tryall_b64(url):
 
     try:
-        return file_to_base64(download_reddit_video(url))
+        if (fname:=download_reddit_video(url)):
+            return file_to_base64(fname)
     except:
         pass
     
     try:
-        return get_video_as_base64(url)
+        if (video_b64:=get_video_as_base64(url)):
+            return video_b64
     except:
         pass
     
     url = convert_shareable_to_comments_link(url)
     
     try:
-        return file_to_base64(download_reddit_video(url))
+        if (fname:=download_reddit_video(url)):
+            return file_to_base64(fname)
     except:
         pass
     
     try:
-        return get_video_as_base64(url)
+        if (video_b64:=get_video_as_base64(url)):
+            return video_b64
     except:
         pass
     
