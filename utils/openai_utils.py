@@ -62,7 +62,7 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     messages=formatted_messages)
 
     # Extract the assistant's response
-    assistant_message = response.choices[0].message.content
+    assistant_message = response.choices[0].message
     conversation_history.append(assistant_message)
 
     # Save updated conversation history if session_key is provided
@@ -84,4 +84,4 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     )
 
     # Return the assistant's reply with model details
-    return assistant_message["content"] + details_string
+    return assistant_message.content + details_string
