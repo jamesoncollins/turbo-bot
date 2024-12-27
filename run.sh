@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define variables
-PYTHON_SCRIPT="your_script.py"   # Replace with the name of your Python script
-CHECK_INTERVAL=60                # Time interval to check the repo for updates (in seconds)
+PYTHON_SCRIPT="run.py"   # Replace with the name of your Python script
+CHECK_INTERVAL=30                # Time interval to check the repo for updates (in seconds)
 
 # Function to run the Python script
 run_python_script() {
