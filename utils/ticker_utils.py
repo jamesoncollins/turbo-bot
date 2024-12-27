@@ -1,4 +1,6 @@
 from utils.misc_utils import *
+
+
 import yfinance as yf
 import re
 import matplotlib.pyplot as plt
@@ -74,7 +76,7 @@ def plot_stock_data_base64(ticker_symbols):
     Plot the historical closing prices for a list of ticker symbols as percentage changes,
     ensuring all stocks start at the same point, and mark the dollar values at the beginning and end.
 
-    Always includes $SPY.
+    Always includes $SPY and uses the longest supplied duration for all tickers.
 
     Parameters:
         ticker_symbols (list of tuples): A list of tuples where each tuple contains a stock ticker symbol and a duration.
@@ -88,17 +90,21 @@ def plot_stock_data_base64(ticker_symbols):
     if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in ticker_symbols):
         ticker_symbols.append(("SPY", "1y"))
 
-    for ticker_symbol, duration in ticker_symbols:
+    # Determine the longest duration
+    durations = [duration for _, duration in ticker_symbols]
+    longest_duration = max(durations, key=lambda d: int(d[:-1]) if d[-1] == 'y' else int(d[:-2]) / 12)
+
+    for ticker_symbol, _ in ticker_symbols:
         try:
-            # Fetch historical market data
+            # Fetch historical market data with the longest duration
             stock = yf.Ticker(ticker_symbol)
-            hist = stock.history(period=duration)
+            hist = stock.history(period=longest_duration)
 
             # Calculate percentage change and normalize
             hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
 
             # Plot normalized closing prices
-            plt.plot(hist.index, hist["Normalized"], label=f"{ticker_symbol.upper()} ({duration})")
+            plt.plot(hist.index, hist["Normalized"], label=f"{ticker_symbol.upper()} ({longest_duration})")
 
             # Mark the starting and ending dollar values
             plt.text(hist.index[0], hist["Normalized"].iloc[0], f"${hist['Close'].iloc[0]:.2f}", fontsize=8, color="black")
