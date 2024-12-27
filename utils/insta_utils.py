@@ -17,7 +17,7 @@ def download_instagram_video_as_b64(url: str, username: str = None, password: st
 
     # Extract shortcode from the URL
     shortcode = None
-    match = re.search(r"instagram\.com/(?:p|reel)/([^/]+)/", url)  # Adjusted regex to capture both post and reel URLs
+    match = re.search(r"instagram\.com/(?:p|reel)/([^/]+)(?:/?$)", url)  # Updated regex to handle both cases
     if match:
         shortcode = match.group(1)
     if not shortcode:
