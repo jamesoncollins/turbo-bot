@@ -1,6 +1,6 @@
 import yfinance as yf
 import matplotlib.pyplot as plt
-
+import re
 
 def find_ticker(text):
   #pattern = r"\$[a-zA-Z]{3,4}"

@@ -1,6 +1,6 @@
 from instascrape import *
 from insta_share import Instagram
-
+import re
     
 def get_insta_sessionid():
     insta = Instagram()
