@@ -1,4 +1,5 @@
 from utils.misc_utils import *
+from utils.video_scrape_utils import *
 from redvid import Downloader
 
 def is_reddit_domain(msg):
@@ -12,6 +13,31 @@ def is_reddit_domain(msg):
         #print("is NOT reddit url")
         return None
  
+def download_reddit_video_tryall_b64(url):
+
+    try:
+        return file_to_base64(download_reddit_video(url))
+    except:
+        pass
+    
+    try:
+        return get_video_as_base64(url)
+    except:
+        pass
+    
+    url = convert_shareable_to_comments_link(url)
+    
+    try:
+        return file_to_base64(download_reddit_video(url))
+    except:
+        pass
+    
+    try:
+        return get_video_as_base64(url)
+    except:
+        pass
+    
+    return None
 
 
 def download_reddit_video(url):

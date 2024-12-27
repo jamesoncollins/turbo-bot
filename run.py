@@ -26,12 +26,9 @@ class PingCommand(Command):
             await c.reply( LOGMSG + "Pong")
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
-            if (video_b64:=get_video_as_base64(url)):
-                await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[file_to_base64(video_b64)])
-            elif (fname:=download_reddit_video(url)):
-                await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[file_to_base64(fname)])
-            elif (fname:=download_reddit_video(convert_shareable_to_comments_link(url))):
-                await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[file_to_base64(fname)])                          
+            video_b64 = download_reddit_video_tryall_b64(url)            
+            if (video_b64):
+                await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
         elif (url := is_youtube_domain(msg)):
             print("is youtube url " + url)
             if (fname:=download_youtube_video(url)):
