@@ -33,15 +33,24 @@ def download_instagram_video_as_b64(url: str, username: str = None, password: st
 
     # Check if the post is a video
     if post.is_video:
+        # Define target download directory
+        download_dir = "downloads"
+        
+        # Delete the existing video file if it exists to ensure a fresh download
+        for filename in os.listdir(download_dir):
+            if filename.endswith(".mp4"):  # Assuming video files are in mp4 format
+                os.remove(os.path.join(download_dir, filename))
+                print(f"Existing video file {filename} removed to allow fresh download.")
+
         # Download the video
         print(f"Downloading video from {url}")
-        L.download_post(post, target="downloads")
+        L.download_post(post, target=download_dir)
 
         # Find the downloaded video file
         video_filename = None
-        for filename in os.listdir("downloads"):
+        for filename in os.listdir(download_dir):
             if filename.endswith(".mp4"):  # Assuming video files are in mp4 format
-                video_filename = os.path.join("downloads", filename)
+                video_filename = os.path.join(download_dir, filename)
                 break
         
         if video_filename:
