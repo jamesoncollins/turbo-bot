@@ -29,6 +29,7 @@ def submit_gpt(query):
             ]
         )
         print(completion.choices[0].message)
+        print(completion.choices[0].message["content"])
         return completion.choices[0].message["content"]
     except:
         return None
