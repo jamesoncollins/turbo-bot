@@ -21,7 +21,9 @@ class PingCommand(Command):
         sourceName = c.message.raw_message["envelope"]["sourceName"]
         sourceNumber = c.message.raw_message["envelope"]["sourceNumber"]
 
-        if msg == "Ping":
+        if msg is None:
+            print("Message was None")
+        elif msg == "Ping":
             print("is ping")
             await c.reply( LOGMSG + "Pong")
         elif (url := is_reddit_domain(msg)):
