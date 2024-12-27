@@ -45,11 +45,8 @@ class PingCommand(Command):
                 await c.reply( LOGMSG + "failed to get url")
         elif (tickers := find_ticker(msg)):
             print("is ticker")
-            stock = yf.Ticker(tickers[0])
-            recent_data = yf.download(tickers, period="1y")            
-            recent_data['Close'].plot()
-            plt.savefig("//tmp//tick.png")
-            await c.reply( LOGMSG + "plot", base64_attachments=[file_to_base64("//tmp//tick.png")])  
+            plot_b64 = get_recent_ticker_data(tickers)
+            await c.reply( LOGMSG + get_stock_summary(tickers), base64_attachments=[plot_b64])  
         elif "#gpt" in msg:
             print("is gpt")
             query =  msg.replace("#gpt", "") 
