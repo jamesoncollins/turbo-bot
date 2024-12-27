@@ -68,7 +68,7 @@ class PingCommand(Command):
             print("is reboot")
             await c.reply( LOGMSG + "turbobot rebooting...")
             quit()
-        else
+        else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
                 handler = handler_class(msg)
