@@ -27,7 +27,7 @@ def get_stock_summary(ticker_symbols):
 
             # Prepare summary information
             summary = (f"\nBasic Stock Information for {ticker_symbol.upper()}:\n"
-                       f"------------------------------------------------\n"
+                       f"----------------------------\n"
                        f"Company Name: {info.get('longName', 'N/A')}\n"
                        f"Sector: {info.get('sector', 'N/A')}\n"
                        f"Industry: {info.get('industry', 'N/A')}\n"
