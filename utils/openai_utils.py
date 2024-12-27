@@ -1,4 +1,6 @@
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 import os
 import json
 
@@ -7,7 +9,6 @@ HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
 # Use environment variable for OpenAI API key
-openai.api_key = os.environ["OPENAI_API_KEY"]
 
 def get_history_file_path(session_key):
     """Returns the file path for a given session key."""
@@ -56,13 +57,11 @@ def submit_gpt(user_input, session_key=None, model="gpt-4"):
     ]
 
     # Call the OpenAI API with the conversation history
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=formatted_messages
-    )
+    response = client.chat.completions.create(model=model,
+    messages=formatted_messages)
 
     # Extract the assistant's response
-    assistant_message = response["choices"][0]["message"]
+    assistant_message = response.choices[0].message
     conversation_history.append(assistant_message)
 
     # Save updated conversation history if session_key is provided
