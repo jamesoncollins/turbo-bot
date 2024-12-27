@@ -1,8 +1,9 @@
+import os
+import json
 from openai import OpenAI
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-import os
-import json
+
 
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
