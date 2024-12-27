@@ -6,6 +6,8 @@ import base64
 
 from utils import *
 
+LOGMSG = "----TURBOBOT----\n"
+
 class PingCommand(Command):
     async def handle(self, c: Context):
         groupId = None
@@ -21,54 +23,54 @@ class PingCommand(Command):
 
         if msg == "Ping":
             print("is ping")
-            await c.send("Pong")
+            await c.reply( LOGMSG + "Pong")
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
             if (fname:=download_reddit_video(url)):
-                await c.reply("Reddit URL: " + url, base64_attachments=[file_to_base64(fname)])
+                await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[file_to_base64(fname)])
         elif (url := is_youtube_domain(msg)):
             print("is youtube url " + url)
             if (fname:=download_youtube_video(url)):
-                await c.reply("YouTube URL: " + url, base64_attachments=[file_to_base64(fname)])
+                await c.reply( LOGMSG + "YouTube URL: " + url, base64_attachments=[file_to_base64(fname)])
         elif "instagram.com" in msg:
             print("is insta")
             url = extract_url(msg, "instagram.com")
             if url:
                 fname = download_insta(url)
                 if fname:
-                    await c.send("got file")
+                    await c.reply( LOGMSG + "got file")
                 else:
-                    await c.send("failed to download")
+                    await c.reply( LOGMSG + "failed to download")
             else:
-                await c.send("failed to get url")
+                await c.reply( LOGMSG + "failed to get url")
         elif (tickers := find_ticker(msg)):
             print("is ticker")
             stock = yf.Ticker(tickers[0])
             recent_data = yf.download(tickers, period="1y")            
             recent_data['Close'].plot()
             plt.savefig("//tmp//tick.png")
-            await c.reply("plot", base64_attachments=[file_to_base64("//tmp//tick.png")])  
+            await c.reply( LOGMSG + "plot", base64_attachments=[file_to_base64("//tmp//tick.png")])  
         elif "#gpt" in msg:
             print("is gpt")
             query =  msg.replace("#gpt", "") 
             res = submit_gpt(query)
-            await c.reply(res)
+            await c.reply(LOGMSG + res)
         elif "#mmw" == msg and groupId:
             print("is mmw")
             mmw = print_file(f"mmw{groupId}.txt")
-            await c.send("History: \n" + mmw)            
+            await c.reply( LOGMSG + "History: \n" + mmw)            
         elif "#mmw" in msg and groupId:
             print("is mmw")
             mmw = sourceName + "(" + sourceNumber + "): " + msg
-            await c.send(mmw)
+            await c.reply(LOGMSG + mmw)
             with open(f"mmw{groupId}.txt", "a") as file:
                 file.write(mmw+"\n")
         elif msg == "#":
             print("is hash")
-            await c.send("I am here.")            
+            await c.reply( LOGMSG + "I am here.")            
         elif msg == "#turboboot":
             print("is reboot")
-            await c.send("turbobot rebooting...")
+            await c.reply( LOGMSG + "turbobot rebooting...")
             quit()          
         return
 
