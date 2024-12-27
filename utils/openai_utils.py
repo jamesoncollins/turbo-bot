@@ -11,7 +11,6 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 
 def get_history_file_path(session_key):
     """Returns the file path for a given session key."""
-    # Sanitize session_key to ensure it's a valid filename
     safe_key = "".join(c for c in session_key if c.isalnum() or c in (' ', '.', '_')).rstrip()
     return os.path.join(HISTORY_DIR, f"{safe_key}.json")
 
@@ -44,23 +43,26 @@ def submit_gpt(user_input, session_key=None, model="gpt-4"):
     """
     # Initialize conversation history
     if session_key:
-        # Load existing conversation history if session_key is provided
         conversation_history = load_conversation_history(session_key)
     else:
-        # Start with a fresh conversation
         conversation_history = []
 
     # Append user's message to the conversation history
     conversation_history.append({"role": "user", "content": user_input})
 
+    # Format the conversation history for the new API
+    formatted_messages = [
+        {"role": msg["role"], "content": msg["content"]} for msg in conversation_history
+    ]
+
     # Call the OpenAI API with the conversation history
     response = openai.ChatCompletion.create(
         model=model,
-        messages=conversation_history
+        messages=formatted_messages
     )
 
     # Extract the assistant's response
-    assistant_message = response['choices'][0]['message']
+    assistant_message = response["choices"][0]["message"]
     conversation_history.append(assistant_message)
 
     # Save updated conversation history if session_key is provided
@@ -69,9 +71,9 @@ def submit_gpt(user_input, session_key=None, model="gpt-4"):
 
     # Prepare model details
     model_details = {
-        "model": response.get("model", model),  # Model name used in the API response
-        "usage": response.get("usage", {}),    # Token usage details (if available)
-        "session_key": session_key             # Session key for tracking
+        "model": response.get("model", model),
+        "usage": response.get("usage", {}),
+        "session_key": session_key,
     }
 
     # Format the details for inclusion in the response string
@@ -82,4 +84,4 @@ def submit_gpt(user_input, session_key=None, model="gpt-4"):
     )
 
     # Return the assistant's reply with model details
-    return assistant_message['content'] + details_string
+    return assistant_message["content"] + details_string
