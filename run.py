@@ -1,173 +1,10 @@
 import os
 from signalbot import SignalBot, Command, Context
-#from commands import PingCommand
 import re
-from instascrape import *
 import time
-import yfinance as yf
-import matplotlib.pyplot as plt
 import base64
-from redvid import Downloader
-from insta_share import Instagram
-from pytubefix import YouTube
-from openai import OpenAI
 
-client = OpenAI(
-  api_key=os.environ["OPENAI_API_KEY"]
-)
-
-def submit_gpt(query):
-    retval = None
-    try:
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": query
-                }
-            ]
-        )
-        print(completion.choices[0].message)
-        message = completion.choices[0].message
-        content_string = message.content
-        retval = content_string
-    except:
-        pass
-    return retval
-    
-def get_insta_sessionid():
-    insta = Instagram()
-    insta.login(os.environ["INSTA_USERNAME"], os.environ["INSTA_PASSWORD"])
-
-    sessionid = insta.session["session_id"]
-    return sessionid
-
-def download_youtube_video(link):
-    # where to save 
-    SAVE_PATH = "./"
-
-    try: 
-        # object creation using YouTube 
-        yt = YouTube(link) 
-        ys = yt.streams.get_highest_resolution()        
-        ys.download(filename="youtube.mp4", output_path=SAVE_PATH)
-        print('Video downloaded successfully!')        
-    except Exception as ex:
-        print(ex)
-        return None    
-        
-    return SAVE_PATH + "/youtube.mp4"
-
-def download_reddit_video(url):
-    fname = "reddit.mp4"
-    
-    try:
-        os.remove(fname)
-    except:
-        print('thats fine')
-    
-    try:        
-        reddit = Downloader(max_q=True) 
-        reddit.url = url
-        reddit.filename = fname
-        reddit.download()
-        return "//root//git//turbo-bot//" + fname
-    except Exception as ex:
-        print(ex)
-        return None
-
-def file_to_base64(file_path):
-    try:
-        with open(file_path, 'rb') as file:
-            file_content = file.read()
-            encoded_content = base64.b64encode(file_content)
-            base64_string = encoded_content.decode('utf-8')
-            return base64_string
-    except FileNotFoundError:
-        return f"Error: File not found at path: {file_path}"
-
-
-def download_insta(url):
-    newurl = url
-    #newurl = url + "?utm_source=ig_web_button_share_sheet"
-    #newurl = re.sub(r'/+', '/', newurl)
-    print("Trying to download from " + newurl)
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
-    fname = f"\\tmp\\reel\\file_{timestamp}.mp4"
-    print("fname is " + fname)
-    
-    try:
-        #SESSIONID = get_insta_sessionid()
-        #headers = {"user-agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Mobile Safari/537.36 Edg/87.0.664.57",
-        #       "cookie": f"sessionid={SESSIONID};"}
-        msg_post = Reel(newurl)
-        #msg_post.scrape(headers=headers)
-        msg_post.scrape()
-        msg_post.download(fp=fname)
-    except Exception as ex:
-        print(ex)
-        return None
-        
-    return fname
-    
-    print('Downloaded Successfully.')
-
-def extract_url(text, domain):
-    pattern = r"https?://(?:www\.)?" + re.escape(domain) + r"(/[^\s]*)?"
-    match = re.search(pattern, text)
-    if match:
-        return match.group(0)
-    return None
-
-def find_ticker(text):
-  #pattern = r"\$[a-zA-Z]{3,4}"
-  pattern = r"\$([a-zA-Z]{1,4})"
-  matches = re.findall(pattern, text)
-  return matches
-  
-def is_reddit_domain(msg):
-    if "reddit.com" in msg:
-        print("is reddit url")
-        return extract_url(msg, "reddit.com")
-    elif "redd.it" in msg: 
-        print("is reddit url")
-        return extract_url(msg, "redd.it")
-    else:
-        #print("is NOT reddit url")
-        return None
- 
-def is_youtube_domain(msg):
-    if "youtube.com" in msg:
-        print("is youtube url")
-        return extract_url(msg, "youtube.com")
-    if "youtu.be" in msg:
-        print("is youtube url")
-        return extract_url(msg, "youtu.be")
-    else:
-        return None
-
-
-def print_file(file_path):
-    try:
-        with open(file_path, 'r') as file:
-            # Read the content of the file
-            file_content = file.read()
-            
-            # Print the content
-            #print(&quot;File Content:\n&quot;, file_content)
-            
-            return file_content
-
-    except FileNotFoundError:
-        pass #print(f&quot;File '{file_path}' not found.&quot;)
-    except Exception as e:
-        pass #print(f&quot;An error occurred: {e}&quot;)
-        
-    return None
-
+from utils import *
 
 class PingCommand(Command):
     async def handle(self, c: Context):
@@ -189,9 +26,9 @@ class PingCommand(Command):
             if (fname:=download_reddit_video(url)):
                 await c.reply("is reddit url " + url, base64_attachments=[file_to_base64(fname)])
         elif (url := is_youtube_domain(msg)):
-            print("is youtube url " + url)
+            print("YouTube URL: " + url)
             if (fname:=download_youtube_video(url)):
-                await c.reply("is youtube url " + url, base64_attachments=[file_to_base64(fname)])
+                await c.reply("YouTube URL: " + url, base64_attachments=[file_to_base64(fname)])
         elif "instagram.com" in msg:
             url = extract_url(msg, "instagram.com")
             if url:
