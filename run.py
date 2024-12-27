@@ -26,7 +26,7 @@ class PingCommand(Command):
             await c.reply( LOGMSG + "Pong")
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
-            if (video_b64:=get_video_as_base64(post_url)):
+            if (video_b64:=get_video_as_base64(url)):
                 await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[file_to_base64(video_b64)])
         elif (url := is_youtube_domain(msg)):
             print("is youtube url " + url)
