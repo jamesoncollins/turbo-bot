@@ -1,4 +1,5 @@
 import os
+import sys
 from signalbot import SignalBot, Command, Context
 import re
 import time
@@ -67,7 +68,7 @@ class PingCommand(Command):
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply( LOGMSG + "turbobot rebooting...")
-            quit()
+            sys.exit(1)
         else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
