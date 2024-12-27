@@ -1,37 +1,55 @@
-from instascrape import *
-from insta_share import Instagram
-import re
-    
-def get_insta_sessionid():
-    insta = Instagram()
-    insta.login(os.environ["INSTA_USERNAME"], os.environ["INSTA_PASSWORD"])
+from utils.misc_utils import *
 
-    sessionid = insta.session["session_id"]
-    return sessionid
+import instaloader
+import os
 
+def download_instagram_video_as_b64(url: str, username: str = None, password: str = None):
+    # Create an instance of the instaloader class
+    L = instaloader.Instaloader()
 
-def download_insta(url):
-    newurl = url
-    #newurl = url + "?utm_source=ig_web_button_share_sheet"
-    #newurl = re.sub(r'/+', '/', newurl)
-    print("Trying to download from " + newurl)
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
-    fname = f"\\tmp\\reel\\file_{timestamp}.mp4"
-    print("fname is " + fname)
-    
-    try:
-        #SESSIONID = get_insta_sessionid()
-        #headers = {"user-agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Mobile Safari/537.36 Edg/87.0.664.57",
-        #       "cookie": f"sessionid={SESSIONID};"}
-        msg_post = Reel(newurl)
-        #msg_post.scrape(headers=headers)
-        msg_post.scrape()
-        msg_post.download(fp=fname)
-    except Exception as ex:
-        print(ex)
-        return None
+    # Log in if username and password are provided
+    if username and password:
+        print("Logging in...")
+        L.login(username, password)
+    else:
+        print("No login credentials provided. Downloading public content.")
+
+    # Extract the post from the given URL
+    post = instaloader.Post.from_url(L.context, url)
+
+    # Check if the post is a video
+    if post.is_video:
+        # Download the video
+        print(f"Downloading video from {url}")
+        L.download_post(post, target="downloads")
+
+        # Find the downloaded video file
+        video_filename = None
+        for filename in os.listdir("downloads"):
+            if filename.endswith(".mp4"):  # Assuming video files are in mp4 format
+                video_filename = os.path.join("downloads", filename)
+                break
         
-    return fname
+        if video_filename:
+            # Convert the video to a base64 string using the existing file_to_base64 function
+            video_b64 = file_to_base64(video_filename)
+            print("Video successfully converted to base64.")
+            return video_b64
+        else:
+            print("Failed to find downloaded video file.")
+    else:
+        print("The provided URL does not point to a video.")
+        return None
+
+# Example usage
+if __name__ == "__main__":
+    # Optionally provide Instagram credentials and the video URL
+    username = input("Enter your Instagram username (or press Enter to skip): ")
+    password = input("Enter your Instagram password (or press Enter to skip): ")
+    url = input("Enter the Instagram video URL: ")
+
+    # If no username/password is provided, those parameters will default to None
+    video_b64_string = download_instagram_video_as_b64(url, username if username else None, password if password else None)
     
-    print('Downloaded Successfully.')
+    if video_b64_string:
+        print(f"Base64 encoded video: {video_b64_string[:100]}...")  # Show first 100 characters of the b64 string

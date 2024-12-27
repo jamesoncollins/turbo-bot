@@ -35,14 +35,8 @@ class PingCommand(Command):
         elif "instagram.com" in msg:
             print("is insta")
             url = extract_url(msg, "instagram.com")
-            if url:
-                fname = download_insta(url)
-                if fname:
-                    await c.reply( LOGMSG + "got file")
-                else:
-                    await c.reply( LOGMSG + "failed to download")
-            else:
-                await c.reply( LOGMSG + "failed to get url")
+            video_b64 = download_instagram_video_as_b64(url)
+            await c.reply( LOGMSG + "IntsgramURL: " + url, base64_attachments=[video_b64])  
         elif (tickers := extract_ticker_symbols(msg)):
             print("is ticker")
             plot_b64 = plot_stock_data_base64(tickers)
