@@ -72,7 +72,7 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     # Prepare model details
     model_details = {
         "model": response.model,
-        "usage": response..usage.total_tokens,
+        "usage": response.usage.total_tokens,
         "session_key": session_key,
     }
 
