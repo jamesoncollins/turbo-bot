@@ -42,3 +42,7 @@ class TwitterHandler(BaseHandler):
         except Exception as e:
             print(f"Error downloading video: {e}")
         return ""
+
+    @staticmethod
+    def get_name() -> str:
+        return "TwitterHandler"

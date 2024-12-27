@@ -16,6 +16,7 @@ if __name__ == "__main__":
         for handler_class in handler_classes:
             handler = handler_class(test_string)
             if handler.can_handle():
+                print("Handler Used:", handler_class.get_name())
                 print("Message:", handler.get_message())
                 print("Attachments:", handler.get_attachments())
 

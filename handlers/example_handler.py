@@ -14,6 +14,10 @@ class ExampleHandler(BaseHandler):
     def get_message(self) -> str:
         return "Replying to a message with a URL for example.com or examp.le."
 
+    @staticmethod
+    def get_name() -> str:
+        return "ExampleHandler"
+
 # handlers/another_example_handler.py
 from handlers.base_handler import BaseHandler
 
@@ -29,3 +33,7 @@ class AnotherExampleHandler(BaseHandler):
 
     def get_message(self) -> str:
         return "Replying to a message with a URL for another.com."
+
+    @staticmethod
+    def get_name() -> str:
+        return "AnotherExampleHandler"
