@@ -1,7 +1,10 @@
 from utils.misc_utils import *
 
+
+
 import instaloader
 import os
+import re
 
 def download_instagram_video_as_b64(url: str, username: str = None, password: str = None):
     # Create an instance of the instaloader class
@@ -14,9 +17,18 @@ def download_instagram_video_as_b64(url: str, username: str = None, password: st
     else:
         print("No login credentials provided. Downloading public content.")
 
-    # Get the post from the provided URL
+    # Extract shortcode from the URL
+    shortcode = None
+    match = re.search(r"instagram\.com/p/([^/]+)/", url)
+    if match:
+        shortcode = match.group(1)
+    if not shortcode:
+        print("Invalid Instagram URL. Unable to extract shortcode.")
+        return None
+
+    # Get the post using the shortcode
     try:
-        post = instaloader.Post.from_shortcode(L.context, L.extract_shortcode(url))
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
     except Exception as e:
         print(f"Error extracting post: {e}")
         return None
