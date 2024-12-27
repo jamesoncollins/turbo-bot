@@ -3,6 +3,7 @@ from signalbot import SignalBot, Command, Context
 import re
 import time
 import base64
+from handlers.base_handler import BaseHandler
 
 from utils import *
 
@@ -66,7 +67,13 @@ class PingCommand(Command):
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply( LOGMSG + "turbobot rebooting...")
-            quit()          
+            quit()
+        else
+            handler_classes = BaseHandler.get_all_handlers()
+            for handler_class in handler_classes:
+                handler = handler_class(msg)
+                if handler.can_handle():
+                    await c.reply( LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
         return
 
 

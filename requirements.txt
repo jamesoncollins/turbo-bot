@@ -27,3 +27,4 @@ requests
 instaloader
 pytubefix
 openai
+yt_dlp
