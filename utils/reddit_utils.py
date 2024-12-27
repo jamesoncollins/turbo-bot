@@ -1,6 +1,8 @@
 from utils.misc_utils import *
 from utils.video_scrape_utils import *
 from redvid import Downloader
+import re
+from urllib.parse import urlparse, parse_qs, urlencode
 
 def is_reddit_domain(msg):
     if "reddit.com" in msg:
