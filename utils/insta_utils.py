@@ -14,8 +14,12 @@ def download_instagram_video_as_b64(url: str, username: str = None, password: st
     else:
         print("No login credentials provided. Downloading public content.")
 
-    # Extract the post from the given URL
-    post = instaloader.Post.from_url(L.context, url)
+    # Get the post from the provided URL
+    try:
+        post = instaloader.Post.from_shortcode(L.context, L.extract_shortcode(url))
+    except Exception as e:
+        print(f"Error extracting post: {e}")
+        return None
 
     # Check if the post is a video
     if post.is_video:
