@@ -38,7 +38,7 @@ while :; do
         exit 1
     fi
 	
-	echo "exit flag not set"
+    echo "exit flag not set"
 	
     git remote update > /dev/null 2>&1
 
