@@ -12,6 +12,9 @@ os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
 
 class GptHandler(HashtagHandler):
+
+    is_intermediate = False
+
     def get_hashtag(self) -> str:
         return "#ggg"
 

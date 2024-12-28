@@ -3,12 +3,16 @@ from handlers.base_handler import BaseHandler
 
 if __name__ == "__main__":
     handler_classes = BaseHandler.get_all_handlers()
+    
+    print(handler_classes)
+    
     test_strings = [
         "Check this out: https://example.com",
         "Look here: https://another.com",
         "Visit us at https://examp.le",
-        "Here is a video: https://twitter.com/somepost",
-        "Check out this post: https://x.com/SaveUSAKitty/status/1872667773484363883"
+        #"Here is a video: https://twitter.com/somepost",
+        #"Check out this post: https://x.com/SaveUSAKitty/status/1872667773484363883",
+        "#ggg write a haiuku",
     ]
 
     for test_string in test_strings:
