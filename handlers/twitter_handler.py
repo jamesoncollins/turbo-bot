@@ -13,7 +13,7 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         return [], information
 
 class TwitterHandler(BaseHandler):
-    ALLOWED_DOMAINS = ["twitter.com", "x.com"]
+    ALLOWED_DOMAINS = ["twitter.com", "x.com", "tiktok.com", "youtube.com", "youtu.be"]
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
