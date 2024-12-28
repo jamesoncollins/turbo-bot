@@ -71,7 +71,7 @@ class PingCommand(Command):
                 if handler.can_handle():
                     print("Handler Used:", handler_class.get_name())
                     await c.reply( LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
-                    return
+                    #return
         return
 
 
