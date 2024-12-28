@@ -1,7 +1,8 @@
 # handlers/numberwang_handler.py
 from handlers.hashtag_handler import HashtagHandler
+from handlers.twitter_handler import TwitterHandler
 
-class GptHandler(HashtagHandler):
+class NumberwangHandler(HashtagHandler):
 
     is_intermediate = False
     
@@ -9,10 +10,12 @@ class GptHandler(HashtagHandler):
         return r"#numberwang"
 
     def get_substring_mapping(self) -> dict:
-        # Provide mapping and default value for 'model'
-        return {0: ("numberwang", "https://youtu.be/0obMRztklqU")}
+        return {0: ("ping", "pong")}
 
     def get_attachments(self) -> list:
+        return TwitterHandler.download_video(self,"https://youtu.be/0obMRztklqU")
+        if video_content:
+            return [BaseHandler.file_to_base64(video_content)]
         return []
 
     def get_message(self) -> str:
