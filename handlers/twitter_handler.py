@@ -1,5 +1,6 @@
 # handlers/twitter_handler.py
 import yt_dlp
+import os
 from handlers.base_handler import BaseHandler
 
 class TwitterHandler(BaseHandler):
@@ -30,6 +31,8 @@ class TwitterHandler(BaseHandler):
             str: The path to the downloaded video file, or an empty string if download fails.
         """
         filename = "downloaded_video.mp4"
+        if os.path.exists(filename):
+            os.remove(filename)       
         ydl_opts = {
             'outtmpl': filename,
             'format': 'bestvideo+bestaudio/best',
