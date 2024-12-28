@@ -3,6 +3,15 @@ import yt_dlp
 import os
 from handlers.base_handler import BaseHandler
 
+class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
+    def __init__(self):
+        super(FilenameCollectorPP, self).__init__(None)
+        self.filenames = []
+
+    def run(self, information):
+        self.filenames.append(information["filepath"])
+        return [], information
+
 class TwitterHandler(BaseHandler):
     ALLOWED_DOMAINS = ["twitter.com", "x.com"]
 
@@ -30,7 +39,7 @@ class TwitterHandler(BaseHandler):
         Returns:
             str: The path to the downloaded video file, or an empty string if download fails.
         """
-        filename = "downloaded_video.mp4"
+        filename = "downloaded_video"
         if os.path.exists(filename):
             os.remove(filename)       
         ydl_opts = {
@@ -40,8 +49,10 @@ class TwitterHandler(BaseHandler):
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                filename_collector = FilenameCollectorPP()
+                ydl.add_post_processor(filename_collector)
                 ydl.download([url])
-            return filename
+            return filename_collector.filenames[0]
         except Exception as e:
             print(f"Error downloading video: {e}")
         return ""
