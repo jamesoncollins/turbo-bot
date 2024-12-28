@@ -1,5 +1,4 @@
 # handlers/numberwang_handler.py
-from handlers.base_handler import BaseHandler
 from handlers.hashtag_handler import HashtagHandler
 from handlers.twitter_handler import TwitterHandler
 
@@ -16,7 +15,7 @@ class NumberwangHandler(HashtagHandler):
     def get_attachments(self) -> list:
         video_content = TwitterHandler.download_video(self,"https://youtu.be/0obMRztklqU")
         if video_content:
-            return [BaseHandler.file_to_base64(video_content)]
+            return [self.file_to_base64(video_content)]
         return []
 
     def get_message(self) -> str:
