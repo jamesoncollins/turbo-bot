@@ -176,15 +176,20 @@ class HashtagHandler(BaseHandler):
         Returns:
             dict: A dictionary containing the hashtag and its substrings.
         """
-        pattern = fr"(?<!\w){re.escape(hashtag)}(\.[\w]+)*"
+        pattern = fr"(?<!\w){re.escape(hashtag)}(?:\.[\w]+)*\b"
+        #pattern = r"#\w+(\.\w+)*"
         match = re.search(pattern, input_str)
+
         substrings = match.group(0).split('.')[1:] if match else []
         result = {"hashtag": hashtag}
 
         for idx, (key, default) in mapping.items():
             result[key] = substrings[idx] if idx < len(substrings) else default
 
-        return result
+        if match:
+            return result
+            
+        return None
 
 
     @staticmethod
