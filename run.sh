@@ -7,6 +7,7 @@ EXIT_FLAG=false                  # Global flag to indicate when the script shoul
 
 # Function to run the Python script
 run_python_script() {
+    EXIT_FLAG=false 
     python3 "$PYTHON_SCRIPT" &
     PYTHON_PID=$!
     wait "$PYTHON_PID"
@@ -42,7 +43,7 @@ while :; do
         echo "Updates detected in the GitHub repository. Pulling changes..."
         git pull > /dev/null 2>&1
 
-        echo "Relaunching the Python script..."
+        echo "Killing $PYTHON_PID and Relaunching the Python script..."
         kill "$PYTHON_PID" 2>/dev/null
         run_python_script &
     fi
