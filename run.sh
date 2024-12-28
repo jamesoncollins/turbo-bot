@@ -43,8 +43,9 @@ while :; do
         echo "Updates detected in the GitHub repository. Pulling changes..."
         git pull > /dev/null 2>&1
 
-        echo "Relaunching the Python script..."
+        echo "Kill python script with PID ${PYTHON_PID}"
         kill "$PYTHON_PID" 2>/dev/null
+		echo "Relaunching the Python script..."
         run_python_script &
     fi
 

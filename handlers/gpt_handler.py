@@ -13,7 +13,7 @@ MAX_HISTORY_LENGTH = 50
 
 class GptHandler(HashtagHandler):
     def get_hashtag(self) -> str:
-        return "#gpt2"
+        return "#ggg"
 
     def get_substring_mapping(self) -> dict:
         # Provide mapping and default value for 'model'
