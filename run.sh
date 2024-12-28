@@ -2,28 +2,34 @@
 
 # Define variables
 PYTHON_SCRIPT="run.py"   # Replace with the name of your Python script
-CHECK_INTERVAL=30                # Time interval to check the repo for updates (in seconds)
+CHECK_INTERVAL=15                # Time interval to check the repo for updates (in seconds)
+EXIT_FLAG=false                  # Global flag to indicate when the script should exit
 
 # Function to run the Python script
 run_python_script() {
     python3 "$PYTHON_SCRIPT" &
     PYTHON_PID=$!
-    wait $PYTHON_PID
+    wait "$PYTHON_PID"
     EXIT_CODE=$?
     if [ $EXIT_CODE -ne 0 ]; then
-        echo "Python script exited with code $EXIT_CODE. Exiting bash script."
-        exit $EXIT_CODE
+        echo "Python script exited with code $EXIT_CODE. Setting exit flag."
+        EXIT_FLAG=true
     fi
 }
 
 # Trap to clean up background processes on exit
 trap "kill 0" EXIT
 
-# Start the Python script
+# Start the Python script initially
 run_python_script &
 
 # Monitor the GitHub repo for updates
 while :; do
+    if [ "$EXIT_FLAG" = true ]; then
+        echo "Exit flag is set. Exiting bash script."
+        exit 1
+    fi
+
     sleep "$CHECK_INTERVAL"
     git remote update > /dev/null 2>&1
 
@@ -35,7 +41,7 @@ while :; do
         git pull > /dev/null 2>&1
 
         echo "Relaunching the Python script..."
-        kill -0 "$PYTHON_PID" 2>/dev/null && kill "$PYTHON_PID"
+        kill "$PYTHON_PID" 2>/dev/null
         run_python_script &
     fi
 
