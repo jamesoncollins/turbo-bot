@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Run script started with PID $$"
+
 # Define variables
 PYTHON_SCRIPT="run.py"   # Replace with the name of your Python script
 CHECK_INTERVAL=15                # Time interval to check the repo for updates (in seconds)
