@@ -10,6 +10,7 @@ run_python_script() {
     EXIT_FLAG=false 
     python3 "$PYTHON_SCRIPT" &
     PYTHON_PID=$!
+	echo "script launched with pid ${PYTHON_PID}"
     wait "$PYTHON_PID"
     EXIT_CODE=$?
     if [ $EXIT_CODE -ne 0 ]; then
@@ -44,7 +45,7 @@ while :; do
         echo "Updates detected in the GitHub repository. Pulling changes..."
         git pull > /dev/null 2>&1
 
-        echo "Killing $PYTHON_PID and Relaunching the Python script..."
+        echo "Killing PID ${PYTHON_PID} and Relaunching the Python script..."
         kill "$PYTHON_PID" 2>/dev/null
         run_python_script &
     fi
