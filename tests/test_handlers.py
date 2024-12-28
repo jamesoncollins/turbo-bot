@@ -10,6 +10,7 @@ if __name__ == "__main__":
     print(handler_classes)
     
     test_strings = [
+        "https://tiktok.com/@underrated.simpsons/video/7410898661741251873",
         "#numberwang",
         "http://example.com",
         "Check this out: https://example.com",
@@ -29,6 +30,6 @@ if __name__ == "__main__":
             if handler.can_handle():
                 print("Handler Used:", handler_class.get_name())
                 print("Message:", handler.get_message())
-                print("Attachments:", handler.get_attachments())
+                print("Attachments:", len(handler.get_attachments()))
 
     print('Done')
