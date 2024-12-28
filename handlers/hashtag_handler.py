@@ -70,7 +70,7 @@ class HashtagHandler(BaseHandler):
         Returns:
             str: The hashtag to look for.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        raise NotImplementedError("Subclasses must implement get_hashtag method.")
 
     def get_substring_mapping(self) -> dict:
         """
@@ -79,4 +79,4 @@ class HashtagHandler(BaseHandler):
         Returns:
             dict: A mapping of substring positions to dictionary keys.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        raise NotImplementedError("Subclasses must implement get_substring_mapping method.")
