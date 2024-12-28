@@ -40,7 +40,7 @@ while :; do
 	
     echo "exit flag not set"
 	
-    git remote update > /dev/null 2>&1
+    #git remote update > /dev/null 2>&1
 
     LOCAL=$(git rev-parse @)
     REMOTE=$(git rev-parse @{u})
