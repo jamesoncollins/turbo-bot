@@ -1,4 +1,5 @@
 # handlers/numberwang_handler.py
+from handlers.base_handler import BaseHandler
 from handlers.hashtag_handler import HashtagHandler
 from handlers.twitter_handler import TwitterHandler
 
