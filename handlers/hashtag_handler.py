@@ -1,5 +1,6 @@
 # handlers/hashtag_handler.py
 from handlers.base_handler import BaseHandler
+import re
 
 class HashtagHandler(BaseHandler):
     def __init__(self, input_str: str):
