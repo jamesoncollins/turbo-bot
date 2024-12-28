@@ -1,4 +1,7 @@
-# main.py
+import sys
+import os
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 from handlers.base_handler import BaseHandler
 
 if __name__ == "__main__":
@@ -7,6 +10,7 @@ if __name__ == "__main__":
     print(handler_classes)
     
     test_strings = [
+        "#numberwang",
         "http://example.com",
         "Check this out: https://example.com",
         "Look here: https://another.com",
