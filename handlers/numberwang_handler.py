@@ -15,7 +15,7 @@ class NumberwangHandler(HashtagHandler):
     def get_attachments(self) -> list:
         video_content = TwitterHandler.download_video(self,"https://youtu.be/0obMRztklqU")
         if video_content:
-            return [BaseHandler.file_to_base64(video_content)]
+            return [self.file_to_base64(video_content)]
         return []
 
     def get_message(self) -> str:
