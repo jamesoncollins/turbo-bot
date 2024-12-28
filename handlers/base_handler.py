@@ -49,9 +49,10 @@ class BaseHandler:
         for _, module_name, _ in pkgutil.iter_modules(["handlers"]):
             module = importlib.import_module(f"handlers.{module_name}")
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, BaseHandler) and obj is not BaseHandler:
+                if issubclass(obj, BaseHandler) and obj is not BaseHandler and not getattr(obj, "is_intermediate", False):
                     handlers.append(obj)
         return handlers
+
 
     @staticmethod
     def file_to_base64(filename: str) -> str:

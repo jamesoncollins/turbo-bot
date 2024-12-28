@@ -3,6 +3,9 @@ from handlers.base_handler import BaseHandler
 import re
 
 class HashtagHandler(BaseHandler):
+
+    is_intermediate = True  # Mark this as an intermediate class
+     
     def __init__(self, input_str: str):
         super().__init__(input_str)
         self.hashtag_data = {}
