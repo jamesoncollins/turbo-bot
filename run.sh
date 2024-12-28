@@ -25,12 +25,14 @@ run_python_script &
 
 # Monitor the GitHub repo for updates
 while :; do
-    if [ "$EXIT_FLAG" = true ]; then
+
+    sleep "$CHECK_INTERVAL"
+	
+	if [ "$EXIT_FLAG" = true ]; then
         echo "Exit flag is set. Exiting bash script."
         exit 1
     fi
-
-    sleep "$CHECK_INTERVAL"
+	
     git remote update > /dev/null 2>&1
 
     LOCAL=$(git rev-parse @)
