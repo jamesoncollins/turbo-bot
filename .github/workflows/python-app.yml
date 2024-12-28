@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
 
-    runs-on:  https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    runs-on: self-hosted
 
     steps:
     - uses: actions/checkout@v4
@@ -30,4 +30,4 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Test with unittest
       run: |
-        unittest
+        OPENAI_API_KEY="" python3 -m unittest discover -s tests -p "test_*.py"
