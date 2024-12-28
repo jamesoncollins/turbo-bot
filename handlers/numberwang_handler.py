@@ -13,13 +13,13 @@ class NumberwangHandler(HashtagHandler):
         return {0: ("ping", "pong")}
 
     def get_attachments(self) -> list:
-        return TwitterHandler.download_video(self,"https://youtu.be/0obMRztklqU")
+        video_content = TwitterHandler.download_video(self,"https://youtu.be/0obMRztklqU")
         if video_content:
             return [BaseHandler.file_to_base64(video_content)]
         return []
 
     def get_message(self) -> str:
-        if self.hashtag_data.get("model") == "help":
+        if self.hashtag_data.get("numberwang") == "help":
             return self.get_help_text()
         return ""
         
