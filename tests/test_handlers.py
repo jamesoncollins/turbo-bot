@@ -7,13 +7,14 @@ if __name__ == "__main__":
     print(handler_classes)
     
     test_strings = [
+        "http://example.com",
         "Check this out: https://example.com",
         "Look here: https://another.com",
         "Visit us at https://examp.le",
         #"Here is a video: https://twitter.com/somepost",
         #"Check out this post: https://x.com/SaveUSAKitty/status/1872667773484363883",
-        "#gpt write a haiuku",
-        "#gpt.image a flower",
+        #"#gpt write a haiuku",
+        #"#gpt.image a flower",
         #"#gpt.gpt-4o-mini write a haiuku",
     ]
 
