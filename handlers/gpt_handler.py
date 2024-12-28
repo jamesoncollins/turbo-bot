@@ -157,5 +157,5 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
     )
     print(response.data[0].revised_prompt)
     #print(response.data[0].url)
-    return response.data[0].b64_json
+    return [response.data[0].b64_json]
     

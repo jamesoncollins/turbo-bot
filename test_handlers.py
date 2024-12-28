@@ -13,7 +13,7 @@ if __name__ == "__main__":
         #"Here is a video: https://twitter.com/somepost",
         #"Check out this post: https://x.com/SaveUSAKitty/status/1872667773484363883",
         "#gpt write a haiuku",
-        #"#gpt.image a flower",
+        "#gpt.image a flower",
         #"#gpt.gpt-4o-mini write a haiuku",
     ]
 
