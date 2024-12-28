@@ -47,11 +47,6 @@ class PingCommand(Command):
             plot_b64 = plot_stock_data_base64(tickers)
             summary = get_stock_summary( convert_to_get_stock_summary_input(tickers) )
             await c.reply( LOGMSG + summary, base64_attachments=[plot_b64])  
-        elif "#gpt" in msg:
-            print("is gpt")
-            query =  msg.replace("#gpt", "") 
-            res = submit_gpt(query)
-            await c.reply(LOGMSG + res)
         elif "#mmw" == msg and groupId:
             print("is mmw")
             mmw = print_file(f"mmw{groupId}.txt")

@@ -12,7 +12,9 @@ if __name__ == "__main__":
         "Visit us at https://examp.le",
         #"Here is a video: https://twitter.com/somepost",
         #"Check out this post: https://x.com/SaveUSAKitty/status/1872667773484363883",
-        "#ggg write a haiuku",
+        "#gpt write a haiuku",
+        #"#gpt.image a flower",
+        #"#gpt.gpt-4o-mini write a haiuku",
     ]
 
     for test_string in test_strings:
@@ -24,6 +26,4 @@ if __name__ == "__main__":
                 print("Message:", handler.get_message())
                 print("Attachments:", handler.get_attachments())
 
-    # Demonstrating the new static methods
-    print("\nExtracted URL from first string:", BaseHandler.extract_url(test_strings[0]))
-    print("Is URL in domains:", BaseHandler.is_url_in_domains("https://example.com", ["example.com", "another.com"]))
+    print('Done')

@@ -11,22 +11,50 @@ HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
 
+image_generation_models = ["dall-e-2", "dall-e-3"]
+
 class GptHandler(HashtagHandler):
 
     is_intermediate = False
-
+    
     def get_hashtag(self) -> str:
-        return "#ggg"
+        return r"#gpt"
 
     def get_substring_mapping(self) -> dict:
         # Provide mapping and default value for 'model'
         return {0: ("model", "gpt-4o-mini")}
 
     def get_attachments(self) -> list:
-        return ["gpt_base64_attachment"]
+        if self.hashtag_data["model"] == "image":
+            self.hashtag_data["model"] = "dall-e-2"            
+        if self.hashtag_data["model"] in image_generation_models:
+            return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
+        return []
 
     def get_message(self) -> str:
-        return submit_gpt(self.cleaned_input, self.hashtag_data["model"])
+        if self.hashtag_data.get("model") == "help":
+            return self.get_help_text()
+        
+        if self.hashtag_data["model"] == "image":
+            self.hashtag_data["model"] = "dall-e-2"            
+        if self.hashtag_data["model"] in image_generation_models:
+            return f"GPT Image Prompt {self.input_str}"
+        
+        return submit_gpt(self.cleaned_input, None, self.hashtag_data["model"])
+        
+    def get_help_text(self) -> str:
+        retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
+        retval += "Available models are:    \n"
+        
+        models = client.models.list()
+        for model in models:
+            retval+=model.id
+            retval+="    \n"
+            
+        retval += "Models that support image generation are:\n"
+        retval += '    \n'.join(str(x) for x in image_generation_models)
+
+        return retval
 
     @staticmethod
     def get_name() -> str:
@@ -83,8 +111,12 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     ]
 
     # Call the OpenAI API with the conversation history
-    response = client.chat.completions.create(model=model,
-    messages=formatted_messages)
+    try:
+        response = client.chat.completions.create(model=model, messages=formatted_messages)
+    except Exception as e:
+        # Code to handle the exception
+        print(f"An error occurred: {e}")
+        return f"An error occurred: {e}"
 
     # Extract the assistant's response
     assistant_message = response.choices[0].message
@@ -110,3 +142,20 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
 
     # Return the assistant's reply with model details
     return assistant_message.content + details_string
+
+def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
+
+    if session_key:
+        return []
+    
+    response = client.images.generate(
+        model=model,
+        prompt=user_input,
+        n=1,
+        size="256x256",
+        response_format="b64_json",
+    )
+    print(response.data[0].revised_prompt)
+    #print(response.data[0].url)
+    return response.data[0].b64_json
+    
