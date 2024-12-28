@@ -15,6 +15,7 @@ run_python_script() {
     if [ $EXIT_CODE -ne 0 ]; then
         echo "Python script exited with code $EXIT_CODE. Setting exit flag."
         EXIT_FLAG=true
+		exit 1
     fi
 }
 
