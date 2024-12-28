@@ -28,6 +28,8 @@ trap "kill 0" EXIT
 # Start the Python script initially
 run_python_script &
 
+echo "check interval"
+
 # Monitor the GitHub repo for updates
 while :; do
 
