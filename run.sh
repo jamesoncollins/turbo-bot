@@ -18,7 +18,6 @@ run_python_script() {
     if [ $EXIT_CODE -ne 0 ]; then
         echo "Python script exited with code $EXIT_CODE. Setting exit flag."
         EXIT_FLAG=true
-		exit 1
     fi
 }
 
@@ -43,6 +42,7 @@ while :; do
     echo "exit flag not set"
 	
     #git remote update > /dev/null 2>&1
+	git remote update
 
     LOCAL=$(git rev-parse @)
     REMOTE=$(git rev-parse @{u})
