@@ -4,15 +4,16 @@
 PYTHON_SCRIPT="run.py"   # Replace with the name of your Python script
 CHECK_INTERVAL=10                # Time interval to check the repo for updates (in seconds)
 EXIT_FLAG_FILE="/tmp/exit_flag"  # File used to indicate when the script should exit
+PYTHON_PID_FILE="/tmp/python_pid" # File used to store the Python script's PID
 
-# Ensure no leftover flag file exists
-rm -f "$EXIT_FLAG_FILE"
+# Ensure no leftover flag or PID file exists
+rm -f "$EXIT_FLAG_FILE" "$PYTHON_PID_FILE"
 
 # Function to run the Python script
 run_python_script() {
     python3 "$PYTHON_SCRIPT" &
-    PYTHON_PID=$!
-    wait "$PYTHON_PID"
+    echo $! > "$PYTHON_PID_FILE"
+    wait $(cat "$PYTHON_PID_FILE")
     EXIT_CODE=$?
     if [ $EXIT_CODE -ne 0 ]; then
         echo "Python script exited with code $EXIT_CODE. Setting exit flag."
@@ -20,8 +21,8 @@ run_python_script() {
     fi
 }
 
-# Trap to clean up background processes on exit
-trap "kill 0; rm -f \"$EXIT_FLAG_FILE\"" EXIT
+# Trap to clean up background processes and files on exit
+trap "kill $(cat $PYTHON_PID_FILE 2>/dev/null) 2>/dev/null; rm -f "$EXIT_FLAG_FILE" "$PYTHON_PID_FILE"" EXIT
 
 # Start the Python script initially
 run_python_script &
@@ -43,9 +44,8 @@ while :; do
         echo "Updates detected in the GitHub repository. Pulling changes..."
         git pull > /dev/null 2>&1
 
-        echo "Kill python script with PID ${PYTHON_PID}"
-        kill "$PYTHON_PID" 2>/dev/null
-		echo "Relaunching the Python script..."
+        echo "Relaunching the Python script..."
+        kill $(cat "$PYTHON_PID_FILE" 2>/dev/null) 2>/dev/null
         run_python_script &
     fi
 
