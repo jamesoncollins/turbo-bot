@@ -152,7 +152,7 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
         model=model,
         prompt=user_input,
         n=1,
-        size="256x256",
+        #size="256x256",
         response_format="b64_json",
     )
     print(response.data[0].revised_prompt)
