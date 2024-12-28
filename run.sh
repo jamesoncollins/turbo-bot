@@ -15,7 +15,7 @@ run_python_script() {
     echo $! > "$PYTHON_PID_FILE"
     wait $(cat "$PYTHON_PID_FILE")
     EXIT_CODE=$?
-    if [ $EXIT_CODE -ne 0 ]; then
+    if [ $EXIT_CODE -ne 143 ]; then
         echo "Python script exited with code $EXIT_CODE. Setting exit flag."
         echo "true" > "$EXIT_FLAG_FILE"
     fi
