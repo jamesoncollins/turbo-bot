@@ -34,6 +34,7 @@ class mmwHandler(HashtagHandler):
         msg = self.context.message.text
         sourceName = self.context.message.raw_message["envelope"]["sourceName"]
         sourceNumber = self.context.message.raw_message["envelope"]["sourceNumber"]
+        print(f"name {sourceName} number {sourceNumber}")
        
         if "#mmw" == msg:
             mmw = print_file(f"mmw{groupId}.txt")
