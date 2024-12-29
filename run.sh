@@ -16,6 +16,7 @@ if [ -f "$file_path" ]; then
   echo "File '$file_path' sourced successfully."
 else
   echo "File '$file_path' does not exist or is not a regular file."
+  /bin/bash
 fi
 
 # Function to run the Python script
