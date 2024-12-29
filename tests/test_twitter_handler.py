@@ -5,7 +5,7 @@ from signalbot import Command, Context, triggered
 from signalbot.utils import chat, ChatTestCase, SendMessagesMock, ReceiveMessagesMock
 from run import PingCommand, LOGMSG
 
-class PingChatTest(ChatTestCase):
+class TwitterHandlerTest(ChatTestCase):
     def setUp(self):
         super().setUp()
         group = {"id": "asdf", "name": "Test"}

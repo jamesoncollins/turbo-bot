@@ -43,16 +43,6 @@ class PingCommand(Command):
             plot_b64 = plot_stock_data_base64(tickers)
             summary = get_stock_summary( convert_to_get_stock_summary_input(tickers) )
             await c.reply( LOGMSG + summary, base64_attachments=[plot_b64])  
-        elif "#mmw" == msg and groupId:
-            print("is mmw")
-            mmw = print_file(f"mmw{groupId}.txt")
-            await c.reply( LOGMSG + "History: \n" + mmw)            
-        elif "#mmw" in msg and groupId:
-            print("is mmw")
-            mmw = sourceName + "(" + sourceNumber + "): " + msg
-            await c.reply(LOGMSG + mmw)
-            with open(f"mmw{groupId}.txt", "a") as file:
-                file.write(mmw+"\n")
         elif msg == "#":
             print("is hash")
             await c.reply( LOGMSG + "I am here.")            
@@ -64,6 +54,7 @@ class PingCommand(Command):
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
                 handler = handler_class(msg)
+                handler.assign_context(c)
                 if handler.can_handle():
                     print("Handler Used:", handler_class.get_name())
                     await c.reply( LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 

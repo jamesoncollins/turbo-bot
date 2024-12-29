@@ -7,7 +7,7 @@ import re
 from urllib.parse import urlparse
 
 class BaseHandler:
-    def __init__(self, input_str: str):
+    def __init__(self, input_str: str, context = None):
         """
         Initialize the BaseHandler with an input string.
 
@@ -15,6 +15,7 @@ class BaseHandler:
             input_str (str): The input string to process.
         """
         self.input_str = input_str
+        self.context = None
 
     def can_handle(self) -> bool:
         """
@@ -42,6 +43,9 @@ class BaseHandler:
             str: The generated reply message.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def assign_context(self, context):
+        self.context = context
 
     @staticmethod
     def get_all_handlers():
