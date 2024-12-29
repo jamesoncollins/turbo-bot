@@ -28,6 +28,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f pkglist ]; then apt -y install $(cat pkglist); fi
     - name: Test with unittest
       run: |
         OPENAI_API_KEY="" python3 -m unittest discover -s tests -p "test_*.py"
