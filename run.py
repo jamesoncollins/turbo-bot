@@ -33,10 +33,6 @@ class PingCommand(Command):
             video_b64 = download_reddit_video_tryall_b64(url)            
             if (video_b64):
                 await c.reply( LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
-        elif (url := is_youtube_domain(msg)):
-            print("is youtube url " + url)
-            if (fname:=download_youtube_video(url)):
-                await c.reply( LOGMSG + "YouTube URL: " + url, base64_attachments=[file_to_base64(fname)])
         elif "instagram.com" in msg:
             print("is insta")
             url = extract_url(msg, "instagram.com")

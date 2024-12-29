@@ -1,3 +1,8 @@
+
+# This is NOT a unittest script
+# This is just a handy way to quickly test all of the handlers without the signalbot
+# framework.
+
 import sys
 import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
