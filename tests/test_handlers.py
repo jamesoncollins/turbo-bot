@@ -1,3 +1,8 @@
+
+# This is NOT a unittest script
+# This is just a handy way to quickly test all of the handlers without the signalbot
+# framework.
+
 import sys
 import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -10,8 +15,8 @@ if __name__ == "__main__":
     print(handler_classes)
     
     test_strings = [
-        "https://tiktok.com/@underrated.simpsons/video/7410898661741251873",
-        "#numberwang",
+        #"https://tiktok.com/@underrated.simpsons/video/7410898661741251873",
+        #"#numberwang",
         "http://example.com",
         "Check this out: https://example.com",
         "Look here: https://another.com",

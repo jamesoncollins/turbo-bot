@@ -3,8 +3,13 @@ from handlers.hashtag_handler import HashtagHandler
 import os
 import json
 from openai import OpenAI
+import warnings
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+key = os.environ.get("OPENAI_API_KEY", "")
+if key=="":
+    warnings.warn("Warning...........No OPENAI_API_KEY provided")
+client = OpenAI(api_key=key)
 
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"

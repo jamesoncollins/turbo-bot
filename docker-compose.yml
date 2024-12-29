@@ -30,7 +30,7 @@ services:
       INSTA_PASSWORD: "mypassword"
       OPENAI_API_KEY: "keygoeshere"
     command: >
-      "mkdir -p ~/git && cd ~/git && ( git clone https://github.com/jamesoncollins/turbo-bot.git || true ) && cd turbo-bot && git config --global --add safe.directory /root/git/turbo-bot && git pull && pip install -r requirements.txt && apt -y install $(cat pkglist) && ./run.sh"
+      sh -c "mkdir -p ~/git && cd ~/git && ( git clone https://github.com/jamesoncollins/turbo-bot.git || true ) && cd turbo-bot && git config --global --add safe.directory /root/git/turbo-bot && git reset --hard && git pull && pip install -r requirements.txt && apt -y install $(cat pkglist) &&  /bin/bash -c /root/git/turbo-bot/run.s"
     volumes:
       - signal-cli-data:/root/git/
 

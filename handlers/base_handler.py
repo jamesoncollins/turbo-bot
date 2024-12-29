@@ -7,7 +7,7 @@ import re
 from urllib.parse import urlparse
 
 class BaseHandler:
-    def __init__(self, input_str: str):
+    def __init__(self, input_str: str, context = None):
         """
         Initialize the BaseHandler with an input string.
 
@@ -15,6 +15,7 @@ class BaseHandler:
             input_str (str): The input string to process.
         """
         self.input_str = input_str
+        self.context = None
 
     def can_handle(self) -> bool:
         """
@@ -42,6 +43,9 @@ class BaseHandler:
             str: The generated reply message.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def assign_context(self, context):
+        self.context = context
 
     @staticmethod
     def get_all_handlers():
@@ -82,18 +86,29 @@ class BaseHandler:
         match = re.search(r"https?://\S+", input_str)
         return match.group(0) if match else ""
 
-    @staticmethod
+    @staticmethod    
     def is_url_in_domains(url: str, domains: list) -> bool:
         """
-        Checks if a URL belongs to any of the specified domains.
-
+        Checks if a URL belongs to any of the specified domains or their subdomains.
+    
         Args:
             url (str): The URL to check.
             domains (list): A list of allowed domains.
-
+    
         Returns:
-            bool: True if the URL is in the list of domains, False otherwise.
+            bool: True if the URL is in the list of domains or their subdomains, False otherwise.
         """
+        # Ensure the URL has a scheme; default to 'http://'
+        if not urlparse(url).scheme:
+            url = f"http://{url}"
+    
         parsed_url = urlparse(url)
         domain = parsed_url.netloc.split(':')[0]  # Exclude port if present
-        return domain in domains
+    
+        # Check if the domain or its subdomains belong to the allowed domains
+        for allowed_domain in domains:
+            if domain == allowed_domain or domain.endswith(f".{allowed_domain}"):
+                return True
+        return False
+
+
