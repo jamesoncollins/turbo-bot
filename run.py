@@ -12,16 +12,8 @@ LOGMSG = "----TURBOBOT----\n"
 
 class PingCommand(Command):
     async def handle(self, c: Context):
-        groupId = None
-        try:
-            groupId = c.message.group
-            groupId = groupId.replace("/", "-")
-        except:
-            pass
 
         msg = c.message.text
-        sourceName = c.message.raw_message["envelope"]["sourceName"]
-        sourceNumber = c.message.raw_message["envelope"]["sourceNumber"]
 
         if msg is None:
             print("Message was None")
@@ -53,12 +45,15 @@ class PingCommand(Command):
         else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
-                handler = handler_class(msg)
-                handler.assign_context(c)
-                if handler.can_handle():
-                    print("Handler Used:", handler_class.get_name())
-                    await c.reply( LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
-                    #return
+                try:
+                    handler = handler_class(msg)
+                    handler.assign_context(c)
+                    if handler.can_handle():
+                        print("Handler Used:", handler_class.get_name())
+                        await c.reply( LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
+                        #return
+                except Exception as e:
+                    print(f"Handler exception: {e}")
         return
 
 
