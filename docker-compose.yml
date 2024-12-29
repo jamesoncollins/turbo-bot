@@ -3,6 +3,7 @@ services:
   signal-cli:
     container_name: signal-cli
     image: bbernhard/signal-cli-rest-api:latest
+    restart: always
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     environment:
@@ -18,6 +19,7 @@ services:
   signal-bot:
     container_name: signal-bot
     build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    restart: always
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     depends_on:
