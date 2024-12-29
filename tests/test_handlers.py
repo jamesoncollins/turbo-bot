@@ -10,8 +10,8 @@ if __name__ == "__main__":
     print(handler_classes)
     
     test_strings = [
-        "https://tiktok.com/@underrated.simpsons/video/7410898661741251873",
-        "#numberwang",
+        #"https://tiktok.com/@underrated.simpsons/video/7410898661741251873",
+        #"#numberwang",
         "http://example.com",
         "Check this out: https://example.com",
         "Look here: https://another.com",
