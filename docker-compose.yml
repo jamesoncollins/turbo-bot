@@ -24,15 +24,6 @@ services:
     tty: true        # docker run -t
     depends_on:
       - signal-cli
-    environment:
-      SIGNAL_API_URL: signal-cli:8181 # URL for the signal-cli API
-      BOT_NUMBER: "+1555555555" # The registered Signal number for your bot
-      CONTACT_NUMERS: "+1555555555" # true/false, a single contact, a ; seperated list of contacts
-      GROUP_NAMES: "MYGROUP" # true/false, a single group, a ; seperated list of groups
-      IGNORE_GROUPS: "TurboBot Devel"
-      INSTA_USERNAME: "myuser"
-      INSTA_PASSWORD: "mypassword"
-      OPENAI_API_KEY: "keygoeshere"
     command: >
       sh -c "mkdir -p ~/git && cd ~/git && ( git clone https://github.com/jamesoncollins/turbo-bot.git || true ) && cd turbo-bot && git config --global --add safe.directory /root/git/turbo-bot && git reset --hard && git pull && pip install -r requirements.txt && apt -y install $(cat pkglist) &&  /bin/bash -c /root/git/turbo-bot/run.s"
     volumes:
