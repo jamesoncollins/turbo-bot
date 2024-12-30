@@ -205,7 +205,8 @@ if __name__ == "__main__":
     # Parse environment variables
     contact_number = parse_env_var("CONTACT_NUMBERS")
     group_name = parse_env_var("GROUP_NAMES")
-    print(f"conacts {contact_number}, groups {group_name}")
+    ignored_groups = parse_env_var("IGNORED_GROUPS")
+    print(f"conacts {contact_number}, groups {group_name}, ignored groups {IGNORED_GROUPS}")
     
     # Determine behavior based on parsed variables
     
@@ -220,7 +221,6 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         # they were either true/false, a single element, or a list
-        print(f"conacts {contact_number}, groups {group_name}")
         
         #
         # FIXME: As of this current signal bot version the group name function is broken.
