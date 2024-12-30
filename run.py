@@ -206,7 +206,7 @@ if __name__ == "__main__":
     contact_number = parse_env_var("CONTACT_NUMBERS")
     group_name = parse_env_var("GROUP_NAMES")
     ignored_groups = parse_env_var("IGNORED_GROUPS")
-    print(f"conacts {contact_number}, groups {group_name}, ignored groups {IGNORED_GROUPS}")
+    print(f"conacts {contact_number}, groups {group_name}, ignored groups {ignored_groups}")
     
     # Determine behavior based on parsed variables
     
