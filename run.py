@@ -22,11 +22,11 @@ def find_group_by_internal_id(data, target_id):
 async def reply(
     c,
     text: str,
-    base64_attachments: list = None,
+    base64_attachments: list = [],
     mentions: list = None,
     text_mode: str = None,
 ):
-    return c.reply(str, base64_attachments)
+    return await c.reply(str, base64_attachments)
 
     source = c.message.source
     desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
@@ -131,7 +131,7 @@ class PingCommand(Command):
             await reply(c, LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            await reply(c, LOGMSG + "I am here.")            
+            reply(c, LOGMSG + "I am here.")            
         elif msg == "#turboboot":
             print("is reboot")
             await reply(c, LOGMSG + "turbobot rebooting...")
