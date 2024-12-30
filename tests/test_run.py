@@ -27,6 +27,21 @@ class RunTest(ChatTestCase):
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
         #self.assertEqual(send_mock.call_args_list[0].args[1], LOGMSG + "Pong")
+        
+
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_ticker_yr(self, receive_mock, send_mock):
+        receive_mock.define(["$amd.1y"])
+        await self.run_bot()
+        self.assertEqual(send_mock.call_count, 1)
+        
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_ticker_not_ticker(self, receive_mock, send_mock):
+        receive_mock.define(["$30"])
+        await self.run_bot()
+        self.assertEqual(send_mock.call_count, 0)
 
 if __name__ == "__main__":
     unittest.main()

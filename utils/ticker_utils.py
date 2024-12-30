@@ -56,7 +56,7 @@ def extract_ticker_symbols(input_string):
     Returns:
         list of tuples: A list of tuples where each tuple contains a ticker symbol and a duration.
     """
-    matches = re.findall(r'\$(\w+)(?:\.(\w+))?', input_string)
+    matches = re.findall(r'\$([a-zA-Z]\w*)(?:\.([a-zA-Z0-9]+))?', input_string)
     return [(symbol, duration if duration else "1y") for symbol, duration in matches]
 
 def convert_to_get_stock_summary_input(ticker_tuples):
