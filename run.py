@@ -6,8 +6,30 @@ import time
 import base64
 from handlers.base_handler import BaseHandler
 from utils import *
+import time
+
+start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
+
+import git
+import os
+
+def get_git_info():
+    """
+    Retrieves the current branch name and commit ID of the Git repository.
+
+    Returns:
+        tuple: A tuple containing the branch name and commit ID.
+               Returns (None, None) if not in a Git repository.
+    """
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
+        branch_name = repo.active_branch.name
+        commit_id = repo.head.commit.hexsha
+        return branch_name, commit_id
+    except git.InvalidGitRepositoryError:
+        return None, None
 
 def find_group_by_internal_id(data, target_id):
     for entry in data:
@@ -34,19 +56,7 @@ async def reply(
     if c.message.group or source != os.environ["BOT_NUMBER"]:
         # this was a group message
         # do a normal reply
-       #return await c.reply(str, base64_attachments)
-        return await c.bot.send(
-            c.message.recipient(),
-            text,
-            base64_attachments=base64_attachments,
-            quote_author=c.message.source,
-            quote_mentions=c.message.mentions,
-            quote_message=c.message.text,
-            quote_timestamp=c.message.timestamp,
-            mentions=mentions,
-            text_mode=text_mode,
-            )
-    
+        return await c.reply(str, base64_attachments)    
     else:
         # this was a 1on1 message that we send ourselves    
         return await c.bot.send(
@@ -68,6 +78,7 @@ class PingCommand(Command):
         # Parse environment variables
         contact_numbers = parse_env_var("CONTACT_NUMBERS")
         group_names = parse_env_var("GROUP_NAMES")
+        ignore_groups = parse_env_var("IGNORE_GROUPS")
 
         #
         # WARNING: Seems that iPhones might not report their phone
@@ -97,14 +108,14 @@ class PingCommand(Command):
             try:
                 group = find_group_by_internal_id(c.bot.groups, c.message.group)
                 group_name = group["name"]
-            
-                ignore_groups = parse_env_var("IGNORE_GROUPS")
                 if ignore_groups and group_name in ignore_groups:
+                    print("Ignored group")
                     return
-                if group_name not in group_names:
+                if group_name not in group_names and group_names != True:
+                    print("group not in group list or group_names isnt True")
                     return
             except Exception as e:
-                print(f"Handler exception: {e}")
+                print(f"Failed to get group info: {e}")
 
         
 
@@ -130,7 +141,14 @@ class PingCommand(Command):
             await c.reply(  LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            await c.reply(  LOGMSG + "I am here.")            
+            branch, commit = get_git_info()
+            str = f"Uptime: {(time.time() - start_time)} seconds\n"
+            if branch and commit:
+                str += f"Branch: {branch}\n"
+                str += f"Commit ID: {commit}\n"
+            else:
+                str += "Not in a Git repository."
+            await c.reply(  LOGMSG + "I am here.\n" + str)            
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")
@@ -139,6 +157,7 @@ class PingCommand(Command):
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
                 try:
+                    handler_name = handler_class.get_name()
                     handler = handler_class(msg)
                     handler.assign_context(c)
                     if handler.can_handle():
@@ -146,7 +165,7 @@ class PingCommand(Command):
                         await c.reply(  LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
                         #return
                 except Exception as e:
-                    print(f"Handler exception: {e}")
+                    print(f"Handler {handler_name} exception: {e}")
         return
 
 
@@ -186,7 +205,8 @@ if __name__ == "__main__":
     # Parse environment variables
     contact_number = parse_env_var("CONTACT_NUMBERS")
     group_name = parse_env_var("GROUP_NAMES")
-    print(f"conacts {contact_number}, groups {group_name}")
+    ignored_groups = parse_env_var("IGNORED_GROUPS")
+    print(f"conacts {contact_number}, groups {group_name}, ignored groups {IGNORED_GROUPS}")
     
     # Determine behavior based on parsed variables
     
@@ -201,7 +221,6 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         # they were either true/false, a single element, or a list
-        print(f"conacts {contact_number}, groups {group_name}")
         
         #
         # FIXME: As of this current signal bot version the group name function is broken.
