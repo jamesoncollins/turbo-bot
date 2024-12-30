@@ -22,7 +22,7 @@ def find_group_by_internal_id(data, target_id):
 async def reply(
     c,
     text: str,
-    base64_attachments: list = [],
+    base64_attachments: list = None,
     mentions: list = None,
     text_mode: str = None,
 ):
