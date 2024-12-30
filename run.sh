@@ -9,6 +9,16 @@ PYTHON_PID_FILE="/tmp/python_pid" # File used to store the Python script's PID
 # Ensure no leftover flag or PID file exists
 rm -f "$EXIT_FLAG_FILE" "$PYTHON_PID_FILE"
 
+# load env file, if it exists
+file_path=secret.txt
+if [ -f "$file_path" ]; then
+  source "$file_path" # Or use . "$file_path"
+  echo "File '$file_path' sourced successfully."
+else
+  echo "File '$file_path' does not exist or is not a regular file."
+  /bin/bash
+fi
+
 # Function to run the Python script
 run_python_script() {
     python3 "$PYTHON_SCRIPT" &

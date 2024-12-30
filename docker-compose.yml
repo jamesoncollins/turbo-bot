@@ -1,4 +1,30 @@
-version: "3"
+version: "3.9"
+
+x-common-config:
+  signal-bot: &signal-bot-common
+    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    restart: always
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    depends_on:
+      - signal-cli
+    environment:
+      GIT_REPO_URL: https://github.com/jamesoncollins/turbo-bot.git
+      GIT_REPO_PATH: /root/git/$(hostname)
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      mkdir -p ${GIT_REPO_PATH} 
+      && cd ${GIT_REPO_PATH} 
+      && ( git clone -b ${GIT_REPO_BRANCH} ${GIT_REPO_URL} ${GIT_REPO_PATH} || true ) 
+      && cd turbo-bot && git config --global --add safe.directory ${GIT_REPO_PATH}
+      && git reset --hard 
+      && git pull 
+      && pip install -r requirements.txt 
+      && apt -y install $(cat pkglist) 
+      && ${GIT_REPO_PATH}/run.sh
+    volumes:
+      - signal-cli-data:${GIT_REPO_PATH}
+
 services:
   signal-cli:
     container_name: signal-cli
@@ -17,33 +43,18 @@ services:
       - "signal-cli-data:/home/.local/share/signal-cli"
 
   signal-bot:
-    container_name: signal-bot
-    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
-    restart: always
-    stdin_open: true # docker run -i
-    tty: true        # docker run -t
-    depends_on:
-      - signal-cli
+    <<: *signal-bot-common
+    container_name: turbo-bot
     environment:
-      SIGNAL_API_URL: signal-cli:8181 # URL for the signal-cli API
-      BOT_NUMBER: "+1555555555" # The registered Signal number for your bot
-      GROUP_NAME: "MYGROUP"
-      INSTA_USERNAME: "myuser"
-      INSTA_PASSWORD: "mypassword"
-      OPENAI_API_KEY: "keygoeshere"
-    command: >
-      sh -c "mkdir -p ~/git && cd ~/git && ( git clone https://github.com/jamesoncollins/turbo-bot.git || true ) && cd turbo-bot && git config --global --add safe.directory /root/git/turbo-bot && git reset --hard && git pull && pip install -r requirements.txt && apt -y install $(cat pkglist) &&  /bin/bash -c /root/git/turbo-bot/run.s"
-    volumes:
-      - signal-cli-data:/root/git/
+      <<: *signal-bot-common.environment
+      GIT_REPO_BRANCH: main
+
+  signal-bot-devel:
+    <<: *signal-bot-common
+    container_name: turbo-bot-devel
+    environment:
+      <<: *signal-bot-common.environment
+      GIT_REPO_BRANCH: devel
 
 volumes:
   signal-cli-data: # Named volume for persistence
-
-
-
-
-
-# mkdir -p ~/.ssh/ && ssh-keyscan github.com >> ~/.ssh/known_hosts
-#
-
-
