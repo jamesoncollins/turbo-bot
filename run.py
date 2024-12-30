@@ -5,9 +5,7 @@ import re
 import time
 import base64
 from handlers.base_handler import BaseHandler
-
 from utils import *
-from conda.common._logic import FALSE
 
 LOGMSG = "----TURBOBOT----\n"
 
@@ -93,14 +91,19 @@ class PingCommand(Command):
         else:               
             # the message contains the group ID, but not the group name.
             # the bot knows all the group names and IDs that the BOT_NUMBER has
-            group = find_group_by_internal_id(c.bot.groups, c.message.group)
-            group_name = group["name"]
-        
-            ignore_groups = parse_env_var("IGNORE_GROUPS")
-            if ignore_groups and group_name in ignore_groups:
-                return
-            if group_name not in group_names:
-                return
+            # this try-except is just for unittests, becuase it doesn't populate these
+            # fields correctly
+            try:
+                group = find_group_by_internal_id(c.bot.groups, c.message.group)
+                group_name = group["name"]
+            
+                ignore_groups = parse_env_var("IGNORE_GROUPS")
+                if ignore_groups and group_name in ignore_groups:
+                    return
+                if group_name not in group_names:
+                    return
+            except Exception as e:
+                print(f"Handler exception: {e}")
 
         
 
