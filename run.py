@@ -108,7 +108,7 @@ class PingCommand(Command):
             try:
                 group = find_group_by_internal_id(c.bot.groups, c.message.group)
                 group_name = group["name"]
-                if ignore_groups and group_name in ignore_groups:
+                if ignore_groups != None and ignore_groups and group_name in ignore_groups:
                     print("Ignored group")
                     return
                 if group_names != True and group_name not in group_names :
