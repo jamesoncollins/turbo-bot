@@ -131,7 +131,7 @@ class PingCommand(Command):
             await reply(c, LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            await reply(c, LOGMSG + "I am here.")            
+            await c.reply( LOGMSG + "I am here.")            
         elif msg == "#turboboot":
             print("is reboot")
             await reply(c, LOGMSG + "turbobot rebooting...")
