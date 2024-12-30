@@ -78,6 +78,7 @@ class PingCommand(Command):
         # Parse environment variables
         contact_numbers = parse_env_var("CONTACT_NUMBERS")
         group_names = parse_env_var("GROUP_NAMES")
+        ignore_groups = parse_env_var("IGNORE_GROUPS")
 
         #
         # WARNING: Seems that iPhones might not report their phone
@@ -107,11 +108,11 @@ class PingCommand(Command):
             try:
                 group = find_group_by_internal_id(c.bot.groups, c.message.group)
                 group_name = group["name"]
-            
-                ignore_groups = parse_env_var("IGNORE_GROUPS")
                 if ignore_groups and group_name in ignore_groups:
+                    print("Ignored group")
                     return
-                if group_name not in group_names:
+                if group_name not in group_names and group_names != True:
+                    print("group not in group list or group_names isnt True")
                     return
             except Exception as e:
                 print(f"Failed to get group info: {e}")
