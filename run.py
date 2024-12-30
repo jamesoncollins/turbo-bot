@@ -153,7 +153,7 @@ class PingCommand(Command):
         elif msg == "#":
             print("is hash")
             branch, commit = get_git_info()
-            str = f"Uptime: {(time.time() - start_time)} seconds"
+            str = f"Uptime: {(time.time() - start_time)} seconds\n"
             if branch and commit:
                 str += f"Branch: {branch}\n"
                 str += f"Commit ID: {commit}\n"
