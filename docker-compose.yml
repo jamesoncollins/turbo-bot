@@ -29,6 +29,7 @@ services:
   signal-cli:
     container_name: signal-cli
     image: bbernhard/signal-cli-rest-api:latest
+    restart: always
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     environment:
