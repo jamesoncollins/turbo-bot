@@ -6,6 +6,9 @@ import time
 import base64
 from handlers.base_handler import BaseHandler
 from utils import *
+import time
+
+start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
 
@@ -150,7 +153,7 @@ class PingCommand(Command):
         elif msg == "#":
             print("is hash")
             branch, commit = get_git_info()
-            str = ""
+            str = f"Uptime: {(time.time() - start_time)} seconds"
             if branch and commit:
                 str += f"Branch: {branch}\n"
                 str += f"Commit ID: {commit}\n"
