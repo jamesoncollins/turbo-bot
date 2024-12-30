@@ -28,3 +28,4 @@ instaloader
 pytubefix
 openai
 yt_dlp
+GitPython

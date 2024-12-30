@@ -9,6 +9,25 @@ from utils import *
 
 LOGMSG = "----TURBOBOT----\n"
 
+import git
+import os
+
+def get_git_info():
+    """
+    Retrieves the current branch name and commit ID of the Git repository.
+
+    Returns:
+        tuple: A tuple containing the branch name and commit ID.
+               Returns (None, None) if not in a Git repository.
+    """
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
+        branch_name = repo.active_branch.name
+        commit_id = repo.head.commit.hexsha
+        return branch_name, commit_id
+    except git.InvalidGitRepositoryError:
+        return None, None
+
 def find_group_by_internal_id(data, target_id):
     for entry in data:
         if entry['internal_id'] == target_id:
@@ -130,7 +149,14 @@ class PingCommand(Command):
             await c.reply(  LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            await c.reply(  LOGMSG + "I am here.")            
+            branch, commit = get_git_info()
+            str = ""
+            if branch and commit:
+                str += f"Branch: {branch}\n"
+                str += f"Commit ID: {commit}\n"
+            else:
+                str += "Not in a Git repository."
+            await c.reply(  LOGMSG + "I am here.\n" + str)            
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")
