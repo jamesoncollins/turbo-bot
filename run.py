@@ -26,6 +26,7 @@ async def reply(
     mentions: list = None,
     text_mode: str = None,
 ):
+
     source = c.message.source
     desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
   
@@ -111,28 +112,28 @@ class PingCommand(Command):
             print("Message was None")
         elif msg == "Ping":
             print("is ping")
-            await reply(c, LOGMSG + "Pong")
+            await c.reply(  LOGMSG + "Pong")
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
             video_b64 = download_reddit_video_tryall_b64(url)            
             if (video_b64):
-                await reply(c, LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
+                await c.reply(  LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
         elif "instagram.com" in msg:
             print("is insta")
             url = extract_url(msg, "instagram.com")
             video_b64 = download_instagram_video_as_b64(url)
-            await reply(c, LOGMSG + "IntsgramURL: " + url, base64_attachments=[video_b64])  
+            await c.reply(  LOGMSG + "IntsgramURL: " + url, base64_attachments=[video_b64])  
         elif (tickers := extract_ticker_symbols(msg)):
             print("is ticker")
             plot_b64 = plot_stock_data_base64(tickers)
             summary = get_stock_summary( convert_to_get_stock_summary_input(tickers) )
-            await reply(c, LOGMSG + summary, base64_attachments=[plot_b64])  
+            await c.reply(  LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            await reply(c, LOGMSG + "I am here.")            
+            await c.reply(  LOGMSG + "I am here.")            
         elif msg == "#turboboot":
             print("is reboot")
-            await reply(c, LOGMSG + "turbobot rebooting...")
+            await c.reply(  LOGMSG + "turbobot rebooting...")
             sys.exit(1)
         else:
             handler_classes = BaseHandler.get_all_handlers()
@@ -142,7 +143,7 @@ class PingCommand(Command):
                     handler.assign_context(c)
                     if handler.can_handle():
                         print("Handler Used:", handler_class.get_name())
-                        await reply(c, LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
+                        await c.reply(  LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
                         #return
                 except Exception as e:
                     print(f"Handler exception: {e}")

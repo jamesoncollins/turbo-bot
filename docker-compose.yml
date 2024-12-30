@@ -72,7 +72,16 @@ services:
       '
     volumes:
       - signal-bot-devel-data:/root/git/ 
-    
+
+  signal-bot-fs-editor:
+    container_name: signal-bot-fs-editor
+    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    #restart: always
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    volumes:
+      - signal-bot-devel-data:/root/git/devel     
+      - signal-bot-data:/root/git/main
 
 volumes:
   signal-cli-data: # Named volume for persistence
