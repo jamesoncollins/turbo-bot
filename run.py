@@ -56,19 +56,7 @@ async def reply(
     if c.message.group or source != os.environ["BOT_NUMBER"]:
         # this was a group message
         # do a normal reply
-       #return await c.reply(str, base64_attachments)
-        return await c.bot.send(
-            c.message.recipient(),
-            text,
-            base64_attachments=base64_attachments,
-            quote_author=c.message.source,
-            quote_mentions=c.message.mentions,
-            quote_message=c.message.text,
-            quote_timestamp=c.message.timestamp,
-            mentions=mentions,
-            text_mode=text_mode,
-            )
-    
+        return await c.reply(str, base64_attachments)    
     else:
         # this was a 1on1 message that we send ourselves    
         return await c.bot.send(
@@ -126,7 +114,7 @@ class PingCommand(Command):
                 if group_name not in group_names:
                     return
             except Exception as e:
-                print(f"Handler exception: {e}")
+                print(f"Failed to get group info: {e}")
 
         
 
@@ -168,6 +156,7 @@ class PingCommand(Command):
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
                 try:
+                    handler_name = handler_class.get_name()
                     handler = handler_class(msg)
                     handler.assign_context(c)
                     if handler.can_handle():
@@ -175,7 +164,7 @@ class PingCommand(Command):
                         await c.reply(  LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
                         #return
                 except Exception as e:
-                    print(f"Handler {handler_class.get_name()} exception: {e}")
+                    print(f"Handler {handler_name} exception: {e}")
         return
 
 
