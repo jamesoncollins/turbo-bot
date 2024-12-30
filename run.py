@@ -146,7 +146,7 @@ class PingCommand(Command):
                         await c.reply(  LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
                         #return
                 except Exception as e:
-                    print(f"Handler exception: {e}")
+                    print(f"Handler {handler_class.get_name()} exception: {e}")
         return
 
 
