@@ -111,7 +111,7 @@ class PingCommand(Command):
                 if ignore_groups and group_name in ignore_groups:
                     print("Ignored group")
                     return
-                if group_name not in group_names and group_names != True:
+                if group_names != True and group_name not in group_names :
                     print("group not in group list or group_names isnt True")
                     return
             except Exception as e:
