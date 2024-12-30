@@ -26,6 +26,8 @@ async def reply(
     mentions: list = None,
     text_mode: str = None,
 ):
+    return await c.reply(str, base64_attachments)
+
     source = c.message.source
     desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
   
