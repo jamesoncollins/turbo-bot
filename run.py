@@ -185,6 +185,7 @@ if __name__ == "__main__":
     # Parse environment variables
     contact_number = parse_env_var("CONTACT_NUMBERS")
     group_name = parse_env_var("GROUP_NAMES")
+    print(f"conacts {contact_number}, groups {group_name}")
     
     # Determine behavior based on parsed variables
     

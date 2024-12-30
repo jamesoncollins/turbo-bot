@@ -1,26 +1,4 @@
-version: "3.9"
 
-x-common-config:
-  signal-bot: &signal-bot-common
-    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
-    restart: always
-    stdin_open: true # docker run -i
-    tty: true        # docker run -t
-    depends_on:
-      - signal-cli
-    entrypoint: ["/bin/bash", "-c"]
-    command: >
-      mkdir -p $${GIT_REPO_PATH} 
-      && cd $${GIT_REPO_PATH} 
-      && ( git clone -b $${GIT_REPO_BRANCH} $${GIT_REPO_URL} $${GIT_REPO_PATH} || true ) 
-      && cd turbo-bot && git config --global --add safe.directory $${GIT_REPO_PATH}
-      && git reset --hard 
-      && git pull 
-      && pip install -r requirements.txt 
-      && apt -y install $(cat pkglist) 
-      && $${GIT_REPO_PATH}/run.sh
-    volumes:
-      - signal-cli-data:$${GIT_REPO_PATH}
 
 services:
   signal-cli:
@@ -38,20 +16,65 @@ services:
       - "signal-cli-data:/home/.local/share/signal-cli"
 
   signal-bot:
-    <<: *signal-bot-common
     container_name: turbo-bot
+    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    restart: always
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    depends_on:
+      - signal-cli
     environment:
       GIT_REPO_URL: https://github.com/jamesoncollins/turbo-bot.git
-      GIT_REPO_PATH: /root/git/$(hostname)
-      GIT_REPO_BRANCH: main
+      GIT_REPO_PATH: /root/git/turbo-bot/  # dont change this unless you change the volume below
+      GIT_REPO_BRANCH: main    
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      '
+        mkdir -p $${GIT_REPO_PATH} &&
+        cd $${GIT_REPO_PATH} &&
+        ( (git init; git remote add origin $${GIT_REPO_URL}; git fetch; git checkout -t origin/$${GIT_REPO_BRANCH} -f) || true ) &&
+        cd $${GIT_REPO_PATH} &&
+        git config --global --add safe.directory $${GIT_REPO_PATH} &&
+        git reset --hard &&
+        git pull &&
+        pip install -r requirements.txt &&
+        apt -y install $(cat pkglist) &&
+        $${GIT_REPO_PATH}/run.sh
+      '
+    volumes:
+      - signal-bot-data:/root/git/
 
   signal-bot-devel:
-    <<: *signal-bot-common
     container_name: turbo-bot-devel
+    build: https://github.com/jamesoncollins/turbo-bot.git#main:docker_bot
+    restart: always
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    depends_on:
+      - signal-cli
     environment:
       GIT_REPO_URL: https://github.com/jamesoncollins/turbo-bot.git
-      GIT_REPO_PATH: /root/git/$(hostname)
-      GIT_REPO_BRANCH: devel
+      GIT_REPO_PATH: /root/git/turbo-bot/ # dont change this unless you change the volume below
+      GIT_REPO_BRANCH: devel    
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      '
+        mkdir -p $${GIT_REPO_PATH} &&
+        cd $${GIT_REPO_PATH} &&
+        ( (git init; git remote add origin $${GIT_REPO_URL}; git fetch; git checkout -t origin/$${GIT_REPO_BRANCH} -f) || true ) &&
+        cd $${GIT_REPO_PATH} &&
+        git config --global --add safe.directory $${GIT_REPO_PATH} &&
+        git reset --hard &&
+        git pull &&
+        pip install -r requirements.txt &&
+        apt -y install $(cat pkglist) &&
+        $${GIT_REPO_PATH}/run.sh
+      '
+    volumes:
+      - signal-bot-devel-data:/root/git/ 
+    
 
 volumes:
   signal-cli-data: # Named volume for persistence
+  signal-bot-data:
+  signal-bot-devel-data:

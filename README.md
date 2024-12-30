@@ -1,15 +1,15 @@
 # turbo-bot
 
-you need to make a secrets.sh file that has these vairables:
+you need to make a secrets.txt file that has these vairables:
 
-      SIGNAL_API_URL: signal-cli:8181 # URL for the signal-cli API
-      BOT_NUMBER: "+1555555555" # The registered Signal number for your bot
-      CONTACT_NUMERS: "+1555555555" # true/false, a single contact, a ; seperated list of contacts
-      GROUP_NAMES: "MYGROUP" # true/false, a single group, a ; seperated list of groups
-      IGNORE_GROUPS: "TurboBot Devel"
-      INSTA_USERNAME: "myuser"
-      INSTA_PASSWORD: "mypassword"
-      OPENAI_API_KEY: "keygoeshere"
+export      SIGNAL_API_URL=signal-cli:8181 # URL for the signal-cli API
+export      BOT_NUMBER="+1555555555" # The registered Signal number for your bot
+export      CONTACT_NUMERS="+1555555555" # true/false, a single contact, a ; seperated list of contacts
+export      GROUP_NAMES="MYGROUP" # true/false, a single group, a ; seperated list of groups
+export      IGNORE_GROUPS="TurboBot Devel"	#optional
+export      INSTA_USERNAME="myuser"
+export      INSTA_PASSWORD="mypassword"
+export      OPENAI_API_KEY="keygoeshere"
       
 Update the docker-compose file to point the signal-cli bot(s) to your repo,
 or use this one.  Default file makes one for main branch and one for devel
