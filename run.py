@@ -50,15 +50,24 @@ async def reply(
 ):
 
     source = c.message.source
-    desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
-  
+    
+
+        
     #fixme: dont use OS var here, get it from the bot
     if c.message.group or source != os.environ["BOT_NUMBER"]:
         # this was a group message
         # do a normal reply
         return await c.reply(str, base64_attachments)    
     else:
-        # this was a 1on1 message that we send ourselves    
+        # this was a 1on1 message that we send ourselves  
+        
+        # some 1v1 messages are dataMesages, not syncMessages, and they dont have dest info
+        try:
+            desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
+        except Exception as e:
+            print(f"Failed to get desintation info, using NOT_NUMBER: {e}")
+            desintation = os.environ["BOT_NUMBER"]
+          
         return await c.bot.send(
             desintation,
             text,
@@ -94,13 +103,27 @@ class PingCommand(Command):
         b64_attachments = c.message.base64_attachments        
         source_name = c.message.raw_message["envelope"]["sourceName"]   # this is a display name, i.e. Bob Smith
         
+        # this will be the same as source or group above
+        recipient = c.message.recipient()
+        
         # was this a 1on1 message, or a group message?
-        if c.message.group == None:
+        if c.message.is_private():
+            print("Is private message")
+            
             # this is not a group message
             # see what the destination is
-            desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
-            desintation_uuid = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destinationUuid"]
-        else:               
+            #
+            # many 1v1 messages come through as dataMessage, not syncMessage.
+            # and, they dont have destination info, i assume becuase its implied?
+            try:
+                destination = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
+                desintation_uuid = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destinationUuid"]
+            except Exception as e:
+                print(f"Failed to get desintation info, using NOT_NUMBER: {e}")
+                desintation = os.environ["BOT_NUMBER"]
+                
+        elif c.message.is_group(): 
+            print("Is group message")              
             # the message contains the group ID, but not the group name.
             # the bot knows all the group names and IDs that the BOT_NUMBER has
             # this try-except is just for unittests, becuase it doesn't populate these
@@ -116,8 +139,19 @@ class PingCommand(Command):
                     return
             except Exception as e:
                 print(f"Failed to get group info: {e}")
-
+        else:
+            print("unknown group/private type")
+            return
         
+        if c.message.type.name == "DATA_MESSAGE":
+            print("is data message")
+        elif c.message.type.name == "SYNC_MESSAGE":
+            print("is sync message")
+        else:
+            print("unknown message type")
+            return
+        
+        print(f"source {source}, recipient {c.message.recipient()}, dest {destination}, group {group}, message type {c.message.type.name}")
 
         if msg is None:
             print("Message was None")
@@ -162,7 +196,17 @@ class PingCommand(Command):
                     handler.assign_context(c)
                     if handler.can_handle():
                         print("Handler Used:", handler_class.get_name())
-                        await c.reply(  LOGMSG + handler.get_message(), base64_attachments=handler.get_attachments() ) 
+                        msg = handler.get_message()
+                        try:
+                            attachments = handler.get_attachments()
+                        except Exception as e:
+                            msg += "\nfailed to download\n"
+                            msg += "Handler {handler_name} exception: {e}"
+                            attachments = []
+                        try:
+                            await c.reply(  LOGMSG + msg, base64_attachments=attachments )
+                        except Exception as e:
+                             c.reply(  LOGMSG + msg + "failed to send signal message" )
                         #return
                 except Exception as e:
                     print(f"Handler {handler_name} exception: {e}")
