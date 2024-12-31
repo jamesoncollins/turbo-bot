@@ -85,7 +85,7 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
                 actual_filename = recent_video_cache[url_hash]
             else:
                 result = ydl.extract_info(url, download=True)
-                actual_filename = ydl.prepare_filename(f"result_{url_hash}")
+                actual_filename = ydl.prepare_filename(f"{result}_{url_hash}")
                 recent_video_cache[url_hash] = actual_filename #move this after exceptions?
     except FilesizeLimitError as e:
         print(f"Skipping download: {e}")
