@@ -78,11 +78,12 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
         'match_filter': filesize_limiter
     }
     
-    actual_filename = recent_video_cache[url_hash]
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             url_hash = hash(url)
-            if not actual_filename:
+            if url_hash in recent_video_cache.keys(): 
+                actual_filename = recent_video_cache[url_hash]
+            else:
                 result = ydl.extract_info(url, download=True)
                 actual_filename = ydl.prepare_filename(f"result_{url_hash}")
                 recent_video_cache[url_hash] = actual_filename #move this after exceptions?
