@@ -56,6 +56,10 @@ def download_video(url: str) -> str:
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            print(info)
+            if info['duration'] > 900:
+                raise("video too long")
             filename_collector = FilenameCollectorPP()
             ydl.add_post_processor(filename_collector)
             ydl.download([url])
