@@ -3,6 +3,8 @@ import yt_dlp
 import os
 from handlers.base_handler import BaseHandler
 
+recent_video_cache = {} # TODO, manage the lifetime of this thing
+
 class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
     def __init__(self):
         super(FilenameCollectorPP, self).__init__(None)
@@ -75,23 +77,20 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
         }],
         'match_filter': filesize_limiter
     }
-
-    recent_video_cache = {}
+    
+    actual_filename = recent_video_cache[url_hash]
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             url_hash = hash(url)
-            if recent_video_cache[url_hash]:
-                actual_filename = recent_video_cache[url_hash]
-            else:
+            if not actual_filename:
                 result = ydl.extract_info(url, download=True)
                 actual_filename = ydl.prepare_filename(f"result_{url_hash}")
+                recent_video_cache[url_hash] = actual_filename #move this after exceptions?
     except FilesizeLimitError as e:
         print(f"Skipping download: {e}")
     except Exception as e:
         print(f"An error occurred: {e}")
 
-    if actual_filename:
-        recent_video_cache[url_hash] = actual_filename
     return actual_filename
 
 
