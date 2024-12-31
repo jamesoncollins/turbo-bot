@@ -67,10 +67,12 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
             os.remove(os.path.join("./", item)) 
 
     actual_filename = None
+    url_hash = hash(url)
+
     ydl_opts = {
         'format': 'best',
         'progress_hooks': [progress_hook],
-        'outtmpl': f'{suggested_filename if suggested_filename else "%(title)s"}.%(ext)s',
+        'outtmpl': f'{suggested_filename if suggested_filename else "%(title)s"}_{url_hash}.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',
@@ -80,13 +82,13 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            url_hash = hash(url)
             if url_hash in recent_video_cache.keys(): 
                 actual_filename = recent_video_cache[url_hash]
                 print(f"Cache hit: {actual_filename}")
             else:
                 result = ydl.extract_info(url, download=True)
-                actual_filename = ydl.prepare_filename(f"{result}_{url_hash}")
+                result['']
+                actual_filename = ydl.prepare_filename(result)
                 recent_video_cache[url_hash] = actual_filename
                 print(f"Cache miss filename: {actual_filename}")
     except FilesizeLimitError as e:
