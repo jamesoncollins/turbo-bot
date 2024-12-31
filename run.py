@@ -7,6 +7,7 @@ import base64
 from handlers.base_handler import BaseHandler
 from utils import *
 import time
+from pickle import NONE
 
 start_time = time.time()
 
@@ -107,6 +108,8 @@ class PingCommand(Command):
         recipient = c.message.recipient()
         
         # was this a 1on1 message, or a group message?
+        destination = NONE
+        desintation_uuid = None
         if c.message.is_private():
             print("Is private message")
             
