@@ -21,7 +21,7 @@ class TwitterHandler(BaseHandler):
 
     def get_attachments(self) -> list:
         url = self.extract_url(self.input_str)
-        video_content = download_video(url)
+        video_content = download_video_with_limit(url)
         if video_content:
             return [BaseHandler.file_to_base64(video_content)]
         return []
@@ -35,31 +35,56 @@ class TwitterHandler(BaseHandler):
     
     
 def download_video(url: str) -> str:
-    """
-    Downloads the video from a Twitter or X post URL using yt_dlp.
+    return download_video_with_limit(url)
 
-    Args:
-        url (str): The URL of the Twitter or X post.
-
-    Returns:
-        str: The path to the downloaded video file, or an empty string if download fails.
+def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
     """
-    filename = "downloaded_video.mp4"
+    Downloads the best quality video below the specified file size limit.
+
+    :param url: URL of the video to download
+    :param max_filesize_mb: Maximum file size in megabytes
+    :param suggested_filename: Suggested filename for the downloaded video (without extension)
+    :return: Actual filename of the downloaded video
+    """
+    
+    class FilesizeLimitError(Exception):
+        pass
+
+    def progress_hook(d):
+        if d['status'] == 'finished':
+            print("Download complete. Processing...")
+
+    def filesize_limiter(info_dict, *args, **kwargs):
+        filesize = info_dict.get('filesize', 0) or info_dict.get('filesize_approx', 0)
+        if filesize and filesize > max_filesize_mb * 1024 * 1024:
+            raise FilesizeLimitError("File size exceeds limit!")
+
     test = os.listdir("./")        
     for item in test:
-        if item.startswith(filename):
-            os.remove(os.path.join("./", item))    
+        if item.startswith(suggested_filename):
+            os.remove(os.path.join("./", item)) 
+
+    actual_filename = None
     ydl_opts = {
-        'outtmpl': filename,
-        'format': 'bestvideo+bestaudio/best',
-        'quiet': True,
+        'format': 'best',
+        'progress_hooks': [progress_hook],
+        'outtmpl': f'{suggested_filename if suggested_filename else "%(title)s"}.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }],
+        'match_filter': filesize_limiter
     }
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            filename_collector = FilenameCollectorPP()
-            ydl.add_post_processor(filename_collector)
-            ydl.download([url])
-        return filename_collector.filenames[0]
+            result = ydl.extract_info(url, download=True)
+            actual_filename = ydl.prepare_filename(result)
+    except FilesizeLimitError as e:
+        print(f"Skipping download: {e}")
     except Exception as e:
-        print(f"Error downloading video: {e}")
-    return ""
+        print(f"An error occurred: {e}")
+
+    return actual_filename
+
+
