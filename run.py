@@ -6,9 +6,8 @@ import time
 import base64
 from handlers.base_handler import BaseHandler
 from utils import *
-import time
 from pickle import NONE
-import datetime
+from datetime import datetime
 
 start_time = time.time()
 
