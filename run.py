@@ -1,13 +1,13 @@
 import os
 import sys
-from signalbot import SignalBot, Command, Context
+from signalbot_local.signalbot import SignalBot, Command, Context
 import re
 import time
 import base64
 from handlers.base_handler import BaseHandler
 from utils import *
-import time
 from pickle import NONE
+from datetime import datetime
 
 start_time = time.time()
 
@@ -18,19 +18,22 @@ import os
 
 def get_git_info():
     """
-    Retrieves the current branch name and commit ID of the Git repository.
+    Retrieves the current branch name, commit ID, and timestamp of the latest commit
+    from the Git repository.
 
     Returns:
-        tuple: A tuple containing the branch name and commit ID.
-               Returns (None, None) if not in a Git repository.
+        str: A formatted string with the branch name, commit ID, and timestamp on separate lines.
+             Returns "Not a Git repository" if not in a Git repository.
     """
     try:
         repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
         branch_name = repo.active_branch.name
         commit_id = repo.head.commit.hexsha
-        return branch_name, commit_id
+        commit_time = datetime.fromtimestamp(repo.head.commit.committed_date).strftime('%Y-%m-%d %H:%M:%S')
+        
+        return f"Branch: {branch_name}\nCommit ID: {commit_id}\nTimestamp: {commit_time}"
     except git.InvalidGitRepositoryError:
-        return None, None
+        return "Not a Git repository"
 
 def find_group_by_internal_id(data, target_id):
     for entry in data:
@@ -178,13 +181,9 @@ class PingCommand(Command):
             await c.reply(  LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            branch, commit = get_git_info()
+            git_info = get_git_info()
             str = f"Uptime: {(time.time() - start_time)} seconds\n"
-            if branch and commit:
-                str += f"Branch: {branch}\n"
-                str += f"Commit ID: {commit}\n"
-            else:
-                str += "Not in a Git repository."
+            str += git_info
             await c.reply(  LOGMSG + "I am here.\n" + str)            
         elif msg == "#turboboot":
             print("is reboot")
