@@ -20,3 +20,26 @@ When you first run this you need to boot signal-cli in normal mode in order
 to link it to your account.  You do that by having it generate a qr code
 that you scan with your phone.  See the signalbot documentation.  tldr:
 http://localhost:8181/v1/qrcodelink?device_name=local
+
+
+Manually running signal-cli from command line.  Be sure to stop the instance
+first:
+
+```
+docker run --env "MODE=json-rpc" --env "PORT=8181" --env "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" --env "GIN_MODE=release" --env "BUILD_VERSION=0.90" --env "SIGNAL_CLI_CONFIG_DIR=/home/.local/share/signal-cli" --env "SIGNAL_CLI_UID=1000" --env "SIGNAL_CLI_GID=1000" --entrypoint "/entrypoint.sh" --volume "/share/CACHEDEV1_DATA/Container/container-station-data/lib/docker/volumes/app-1_signal-cli-data/_data:/home/.local/share/signal-cli"  bbernhard/signal-cli-rest-api:latest
+```
+
+This was generated with:
+
+```
+container_id="signal-cli"
+docker inspect $container_id | jq -r '
+  .[] | 
+  "docker run " +
+  (if .Config.Env then (.Config.Env | map("--env \"" + . + "\"") | join(" ")) else "" end) + " " +
+  (if .Config.Entrypoint then "--entrypoint \"" + (.Config.Entrypoint | join(" ")) + "\" " else "" end) +
+  (if .Mounts then (.Mounts | map("--volume \"" + .Source + ":" + .Destination + "\"") | join(" ")) else "" end) + " " +
+  (if .Config.Cmd then (.Config.Cmd | join(" ")) else "" end) +
+  " " + .Config.Image
+'
+```

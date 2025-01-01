@@ -203,7 +203,7 @@ class PingCommand(Command):
                             attachments = handler.get_attachments()
                         except Exception as e:
                             msg += "\nfailed to download\n"
-                            msg += "Handler {handler_name} exception: {e}"
+                            msg += f"Handler {handler_name} exception: {e}"
                             attachments = []
                         try:
                             await c.reply(  LOGMSG + msg, base64_attachments=attachments )
