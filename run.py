@@ -1,6 +1,6 @@
 import os
 import sys
-from signalbot import SignalBot, Command, Context
+from signalbot_local.signalbot import SignalBot, Command, Context
 import re
 import time
 import base64
