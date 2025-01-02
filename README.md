@@ -43,3 +43,24 @@ docker inspect $container_id | jq -r '
   " " + .Config.Image
 '
 ```
+
+
+# Development
+
+You can develop in windows, linux, wsl, and mac all relatively easily.
+
+For Windows I'd suggest using miniconda.
+
+Running the tests on your own windows or linux box is pretty easy.
+
+If on windows just install miniconda and then run `pip3 install -r requirements.txt`.
+
+Then you can run all the tests with `python3 -m unittest discover -s tests -p "test_*.py"`
+
+You can also do it in WSL 1 or 2.
+
+Some handlers might also require apt-get packages.  i.e. ffmpeg.  You can get 
+ffmpeg in miniconda or wsl.
+
+
+
