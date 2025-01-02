@@ -214,32 +214,6 @@ class PingCommand(Command):
                     print(f"Handler {handler_name} exception: {e}")
         return
 
-
-def parse_env_var(env_var, delimiter=";"):
-    """
-    Parses an environment variable and returns a list, a boolean, or None.
-    
-    Args:
-        env_var (str): The name of the environment variable.
-        delimiter (str): The delimiter used for splitting lists.
-        
-    Returns:
-        list, bool, or None: Parsed value from the environment variable.
-    """
-    value = os.environ.get(env_var, None)
-    if value is None or value.strip() == "":
-        return None  # Treat as "not supplied"
-    
-    #value = value.strip().lower()
-    
-    if value in {"true", "false"}:
-        return value == "true"  # Return as a Python boolean
-    elif delimiter in value:
-        return value.split(delimiter)  # Return as a list
-    else:
-        return [value]  # Single value as a list
-
-
 if __name__ == "__main__":
     bot = SignalBot({
         "signal_service": os.environ["SIGNAL_API_URL"],
