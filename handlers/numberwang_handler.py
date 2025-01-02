@@ -1,6 +1,6 @@
 # handlers/numberwang_handler.py
 from handlers.hashtag_handler import HashtagHandler
-from handlers.twitter_handler import download_video
+from handlers.twitter_handler import download_video_with_limit
 
 class NumberwangHandler(HashtagHandler):
 
@@ -13,7 +13,7 @@ class NumberwangHandler(HashtagHandler):
         return {0: ("ping", "pong")}
 
     def get_attachments(self) -> list:
-        video_content = download_video("https://youtu.be/0obMRztklqU")
+        video_content = download_video_with_limit("https://youtu.be/0obMRztklqU")
         if video_content:
             return [self.file_to_base64(video_content)]
         return []
