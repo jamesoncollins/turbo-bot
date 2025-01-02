@@ -195,21 +195,21 @@ class PingCommand(Command):
                 try:
                     handler_name = handler_class.get_name()
                     handler = handler_class(msg)
-                    handler.assign_context(c)
+                    handler.assign_context(c)                    
                     if handler.can_handle():
                         print("Handler Used:", handler_class.get_name())
-                        msg = handler.get_message()
+                        returnMsg = ""
                         try:
-                            attachments = handler.get_attachments()
+                            retdict = handler.process_message(msg, b64_attachments)
+                            returnMsg = retdict["message"]
+                            returnAttachments = retdict["attachments"]
                         except Exception as e:
-                            msg += "\nfailed to download\n"
-                            msg += f"Handler {handler_name} exception: {e}"
-                            attachments = []
+                            returnMsg += f"Handler {handler_name} exception: {e}"
+                            returnAttachments = []
                         try:
-                            await c.reply(  LOGMSG + msg, base64_attachments=attachments )
+                            await c.reply(  LOGMSG + returnMsg, base64_attachments=returnAttachments )
                         except Exception as e:
-                             c.reply(  LOGMSG + msg + "failed to send signal message" )
-                        #return
+                            c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
                 except Exception as e:
                     print(f"Handler {handler_name} exception: {e}")
         return
