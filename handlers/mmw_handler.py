@@ -1,8 +1,8 @@
 # handlers/mmw_handler.py
 from handlers.hashtag_handler import HashtagHandler
-
-
-from utils import print_file
+from utils import *
+import os
+from datetime import datetime
 
 class mmwHandler(HashtagHandler):
 
@@ -24,10 +24,9 @@ class mmwHandler(HashtagHandler):
         if self.context == None:
             raise Exception("need context")
         
-        groupId = None
+        groupId_hashed = None
         try:
-            groupId = self.context.message.group
-            groupId = groupId.replace("/", "-")
+            groupId_hashed = hash_string(self.context.message.group)
         except:
             raise Exception("mmw only works for groups")
 
@@ -37,13 +36,18 @@ class mmwHandler(HashtagHandler):
         sourceNumber = self.context.message.raw_message["envelope"]["sourceNumber"]
         sourceNumber = sourceNumber if sourceNumber else "Unknown"        
        
+        fname = f"{groupId_hashed}/mmw.json"
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
         if "#mmw" == msg:
-            mmw = print_file(f"mmw{groupId}.txt")
+            mmw = get_json_file_contents(fname, encryption_key=None)
             return "History: \n" + mmw            
-        elif "#mmw" in msg:
+        elif "#mmw" in msg:            
             mmw = sourceName + "(" + sourceNumber + "): " + msg
-            with open(f"mmw{groupId}.txt", "a") as file:
-                file.write(mmw+"\n")
+            append_to_json_file(
+                fname, 
+                {"sourceName": sourceName, "sourceNumber": sourceNumber, "time": datetime.now().isoformat(), "message": msg},
+                encryption_key=None
+                )
             return mmw
         
         raise Exception("shouldnt get here")

@@ -43,6 +43,25 @@ class BaseHandler:
             str: The generated reply message.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+    
+    def process_message(self, msg, attachments):
+        """Process a string and attachments.
+        
+        Args:
+            input_str (str): The main input string.
+            attachments (list): A list of Base64-encoded file strings.
+        
+        Returns:
+            dict: A dictionary containing processed message and attachments.
+        """
+        # Generate the processed message and attachments
+        processed_message = self.get_message()
+        processed_attachments = self.get_attachments()
+        
+        return {
+            "message": processed_message,
+            "attachments": processed_attachments,
+        }
 
     def assign_context(self, context):
         self.context = context
