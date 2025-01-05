@@ -110,6 +110,16 @@ class PingCommand(Command):
         # this will be the same as source or group above
         recipient = c.message.recipient()
         
+        # try to get quote info.  currently this is a try becuase i dont know
+        # how it looks for a data message
+        try:
+            quote_msg = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
+            quote_author = quote_msg["author"]
+            quote_text = quote_msg["text"]
+            quote_attachments = quote_msg["attachments"]
+        except:
+            pass
+        
         # was this a 1on1 message, or a group message?
         destination = NONE
         desintation_uuid = None
