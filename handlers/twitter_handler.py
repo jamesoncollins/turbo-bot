@@ -78,12 +78,19 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(url, download=True)
+            result = ydl.extract_info(url, download=True)            
             actual_filename = ydl.prepare_filename(result)
     except FilesizeLimitError as e:
         print(f"Skipping download: {e}")
     except Exception as e:
         print(f"An error occurred: {e}")
+        
+    video_title = ""
+    try:
+        video_title = result["title"]
+    except:
+        pass
+    print(f"Video title is: {video_title}")
 
     return actual_filename
 
