@@ -7,3 +7,5 @@ __pycache__
 *.webm
 *.txt
 *secret*
+*.json*
+*.jpg

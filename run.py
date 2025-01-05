@@ -110,6 +110,16 @@ class PingCommand(Command):
         # this will be the same as source or group above
         recipient = c.message.recipient()
         
+        # try to get quote info.  currently this is a try becuase i dont know
+        # how it looks for a data message
+        try:
+            quote_msg = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
+            quote_author = quote_msg["author"]
+            quote_text = quote_msg["text"]
+            quote_attachments = quote_msg["attachments"]
+        except:
+            pass
+        
         # was this a 1on1 message, or a group message?
         destination = NONE
         desintation_uuid = None
@@ -169,11 +179,6 @@ class PingCommand(Command):
             video_b64 = download_reddit_video_tryall_b64(url)            
             if (video_b64):
                 await c.reply(  LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
-        elif "instagram.com" in msg:
-            print("is insta")
-            url = extract_url(msg, "instagram.com")
-            video_b64 = download_instagram_video_as_b64(url)
-            await c.reply(  LOGMSG + "IntsgramURL: " + url, base64_attachments=[video_b64])  
         elif (tickers := extract_ticker_symbols(msg)):
             print("is ticker")
             plot_b64 = plot_stock_data_base64(tickers)
