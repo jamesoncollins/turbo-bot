@@ -19,25 +19,21 @@ class TwitterHandler(BaseHandler):
         url = self.extract_url(self.input_str)
         return url and self.is_url_in_domains(url, self.ALLOWED_DOMAINS)
 
-    def get_attachments(self) -> list:
+    def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
-        video_content = download_video_with_limit(url)
+        video_content = download_video(url)
         if video_content:
-            return [BaseHandler.file_to_base64(video_content)]
+            return {
+                "message": "Downloaded video content from Twitter/X.",
+                "attachments": [BaseHandler.file_to_base64(video_content)],
+            }
         return []
-
-    def get_message(self) -> str:
-        return "Downloaded video content from Twitter/X."
 
     @staticmethod
     def get_name() -> str:
         return "TwitterHandler"
     
-    
-def download_video(url: str) -> str:
-    return download_video_with_limit(url)
-
-def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
+def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
     """
     Downloads the best quality video below the specified file size limit.
 
