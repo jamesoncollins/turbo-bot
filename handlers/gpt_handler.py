@@ -4,6 +4,8 @@ import os
 import json
 from openai import OpenAI
 import warnings
+import base64
+import io
 
 
 key = os.environ.get("OPENAI_API_KEY", "")
@@ -163,4 +165,29 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
     print(response.data[0].revised_prompt)
     #print(response.data[0].url)
     return [response.data[0].b64_json]
+
+
+
+
+def string_to_base64_text_file(input_string):
+    """
+    Creates a Base64-encoded text file from a string without saving it to disk.
+    
+    :param input_string: The string to encode.
+    :return: A bytes object representing the Base64-encoded text file.
+    """
+    # Encode the string to Base64
+    b64_encoded = base64.b64encode(input_string.encode('utf-8'))
+
+    # Create a virtual file
+    virtual_file = io.BytesIO()
+    virtual_file.write(b64_encoded)
+    virtual_file.seek(0)  # Rewind the file to the beginning
+    
+    # Get the contents of the virtual file as bytes
+    return virtual_file.read()
+
+# Example usage
+encoded_file_content = string_to_base64_text_file("Hello, World!")
+print(encoded_file_content)  # This is the Base64-encoded representation of the text file
     
