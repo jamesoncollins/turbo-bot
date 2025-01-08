@@ -31,23 +31,32 @@ class GptHandler(HashtagHandler):
         # Provide mapping and default value for 'model'
         return {0: ("model", "gpt-4o-mini")}
 
-    def get_attachments(self) -> list:
-        if self.hashtag_data["model"] == "image":
-            self.hashtag_data["model"] = "dall-e-2"            
-        if self.hashtag_data["model"] in image_generation_models:
-            return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
-        return []
-
-    def get_message(self) -> str:
+    def process_message(self, msg, attachments):
+        
         if self.hashtag_data.get("model") == "help":
-            return self.get_help_text()
+            return {"message": self.get_help_text(), "attachments": []}
         
         if self.hashtag_data["model"] == "image":
-            self.hashtag_data["model"] = "dall-e-2"            
+            self.hashtag_data["model"] = "dall-e-2"  
+                      
         if self.hashtag_data["model"] in image_generation_models:
-            return f"GPT Image Prompt {self.input_str}"
+            return { "messge": "image", "attachments": submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])}
         
-        return submit_gpt(self.cleaned_input, None, self.hashtag_data["model"])
+        # try to get quote info.  currently this is a try becuase i dont know
+        # how it looks for a data message
+        json_quoted_convo = None
+        try:
+            quote_msg = self.context.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
+            quote_author = quote_msg["author"]
+            quote_text = quote_msg["text"]
+            quote_attachments = quote_msg["attachments"]
+            convo_b64 = find_first_text_file_base64(quote_attachments)
+            json_quoted_convo = base64_text_file_to_json(convo_b64)
+        except:
+            pass
+       
+        return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
+
         
     def get_help_text(self) -> str:
         retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
@@ -90,7 +99,7 @@ def save_conversation_history(session_key, history):
     with open(history_file, "w") as file:
         json.dump(trimmed_history, file, indent=4)
 
-def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
+def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-mini"):
     """
     Submits user input to the GPT model, maintaining conversation history.
     
@@ -106,8 +115,11 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     # Initialize conversation history
     if session_key:
         conversation_history = load_conversation_history(session_key)
+    elif json_session:
+        conversation_history = json_session
     else:
         conversation_history = []
+        
 
     # Append user's message to the conversation history
     conversation_history.append({"role": "user", "content": user_input})
@@ -123,7 +135,7 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     except Exception as e:
         # Code to handle the exception
         print(f"An error occurred: {e}")
-        return f"An error occurred: {e}"
+        return {"messge": f"An error occurred: {e}", "attachments": []}
 
     # Extract the assistant's response
     assistant_message = response.choices[0].message
@@ -132,6 +144,8 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
     # Save updated conversation history if session_key is provided
     if session_key:
         save_conversation_history(session_key, conversation_history)
+
+    json_session = conversation_history
 
     # Prepare model details
     model_details = {
@@ -146,9 +160,10 @@ def submit_gpt(user_input, session_key=None, model="gpt-4o-mini"):
         f"Session Key: {model_details['session_key']}\n"
         f"Token Usage: {model_details['usage']}"
     )
+        
 
     # Return the assistant's reply with model details
-    return assistant_message.content + details_string
+    return {"message": assistant_message.content + details_string, "attachments": [json_to_base64_text_file(json_session)]}
 
 def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
 
@@ -169,15 +184,19 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
 
 
 
-def string_to_base64_text_file(input_string):
+
+def json_to_base64_text_file(json_data):
     """
-    Creates a Base64-encoded text file from a string without saving it to disk.
+    Creates a Base64-encoded text file from JSON data without saving it to disk.
     
-    :param input_string: The string to encode.
+    :param json_data: The JSON data to encode (Python dictionary or list).
     :return: A bytes object representing the Base64-encoded text file.
     """
-    # Encode the string to Base64
-    b64_encoded = base64.b64encode(input_string.encode('utf-8'))
+    # Serialize the JSON data to a string
+    json_string = json.dumps(json_data)
+
+    # Encode the JSON string to Base64
+    b64_encoded = base64.b64encode(json_string.encode('utf-8'))
 
     # Create a virtual file
     virtual_file = io.BytesIO()
@@ -187,7 +206,43 @@ def string_to_base64_text_file(input_string):
     # Get the contents of the virtual file as bytes
     return virtual_file.read()
 
-# Example usage
-encoded_file_content = string_to_base64_text_file("Hello, World!")
-print(encoded_file_content)  # This is the Base64-encoded representation of the text file
+def base64_text_file_to_json(b64_file_content):
+    """
+    Decodes a Base64-encoded text file and converts it back to JSON data.
+    
+    :param b64_file_content: The Base64-encoded content of the text file (bytes object).
+    :return: The decoded JSON data as a Python dictionary or list.
+    """
+    # Decode the Base64 content to get the original JSON string
+    decoded_bytes = base64.b64decode(b64_file_content)
+    json_string = decoded_bytes.decode('utf-8')
+    
+    # Parse the JSON string back into a Python object
+    json_data = json.loads(json_string)
+    
+    return json_data
+
+def find_first_text_file_base64(base64_files):
+    """
+    Identifies the first Base64-encoded file in the list that is a text file and returns it.
+    
+    :param base64_files: A list of Base64-encoded file contents (as bytes or strings).
+    :return: The Base64 string representing the first text file found, or None if no text file is found.
+    """
+    for b64_file in base64_files:
+        try:
+            # Decode the Base64 content
+            decoded_bytes = base64.b64decode(b64_file)
+
+            # Attempt to decode the bytes as UTF-8 (text)
+            decoded_text = decoded_bytes.decode('utf-8')
+
+            # If successful, return the original Base64 string
+            return b64_file
+        except (base64.binascii.Error, UnicodeDecodeError):
+            # If decoding fails, it's not a valid Base64 or not a text file
+            continue
+
+    # Return None if no text file is found
+    return None
     
