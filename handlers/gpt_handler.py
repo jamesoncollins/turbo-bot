@@ -145,7 +145,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     if session_key:
         save_conversation_history(session_key, conversation_history)
 
-    json_session = conversation_history
+    # Convert the chat history to a JSON string
+    json_session = json.dumps(conversation_history, indent=4)
 
     # Prepare model details
     model_details = {
