@@ -132,8 +132,6 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
     
-    print(response)
-    
     # Extract the assistant's response
     assistant_message = response.choices[0].message
     json_session.append( {"role": "assistant", "content": assistant_message.content} )
@@ -185,8 +183,10 @@ def json_to_base64_text_file(json_data):
     :param json_data: The JSON data to encode (Python dictionary or list).
     :return: A bytes object representing the Base64-encoded text file.
     """
+    print("here")
     # Serialize the JSON data to a string
     json_string = json.dumps(json_data)
+    print("here1")
 
     # Encode the JSON string to Base64
     b64_encoded = base64.b64encode(json_string.encode('utf-8'))
