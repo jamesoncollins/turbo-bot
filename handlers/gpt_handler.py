@@ -136,7 +136,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     
     # Extract the assistant's response
     assistant_message = response.choices[0].message
-    json_session.append(assistant_message.model_dump_json())
+    json_session.append( {"role": "assistant", "content": assistant_message.content} )
 
     print(json_session)
 
