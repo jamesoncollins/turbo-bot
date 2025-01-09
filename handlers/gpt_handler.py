@@ -189,7 +189,7 @@ def json_to_base64_text_file(json_data):
         
         # Construct the MIME data
         mime_type = "text/plain"        
-        mime_data = f"data:{mime_type};name=log.txtbase64,{base64_encoded}"
+        mime_data = f"data:{mime_type};name=log.txt;base64,{base64_encoded}"
         
         # Return MIME data as bytes
         return mime_data.encode('utf-8')
