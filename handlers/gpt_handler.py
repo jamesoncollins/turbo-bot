@@ -211,6 +211,8 @@ def base64_text_file_to_json(b64_file_content):
     # Parse the JSON string back into a Python object
     json_data = json.loads(json_string)
     
+    print(f"loaded json data {json_data}")
+    
     return json_data
 
 def find_first_text_file_base64(base64_files):
