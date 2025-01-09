@@ -179,7 +179,7 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
 def json_to_base64_text_file(json_data):
 
     try:
-        input_data = json.dump(json_data)
+        input_data = json.dumps(json_data)
         
         # Convert the input string to bytes
         input_bytes = input_data.encode('utf-8')
