@@ -188,8 +188,12 @@ def json_to_base64_text_file(json_data):
     print(f"json string is {json_string}")
 
     # Encode the JSON string to Base64
-    b64_encoded = base64.b64encode(json_string.encode('utf-8'))
-    print(f"b64_encoded {b64_encoded}")
+    b64_encoded = base64.b64encode(json_string.encode('utf-8').decode('utf-8'))
+            
+        # Construct the MIME data
+    mime_data = f"data:{text/plain};name={log.txt};base64,{base64_encoded}"
+        
+    return mime_data
     return b64_encoded
 
     # Create a virtual file
