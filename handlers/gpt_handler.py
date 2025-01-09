@@ -114,6 +114,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     """
     if not json_session:
         json_session = []
+        
+    # Append user's message to the conversation history
+    json_session.append({"role": "user", "content": user_input})
 
     # Format the conversation history for the new API
     formatted_messages = [
