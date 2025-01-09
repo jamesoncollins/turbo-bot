@@ -189,6 +189,8 @@ def json_to_base64_text_file(json_data):
 
     # Encode the JSON string to Base64
     b64_encoded = base64.b64encode(json_string.encode('utf-8'))
+    
+    return b64_encoded
 
     # Create a virtual file
     virtual_file = io.BytesIO()
@@ -196,7 +198,9 @@ def json_to_base64_text_file(json_data):
     virtual_file.seek(0)  # Rewind the file to the beginning
     
     # Get the contents of the virtual file as bytes
-    return virtual_file.read()
+    bbytes = virtual_file.read()
+
+    return bbytes
 
 def base64_text_file_to_json(b64_file_content):
     """
