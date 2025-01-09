@@ -183,10 +183,8 @@ def json_to_base64_text_file(json_data):
     :param json_data: The JSON data to encode (Python dictionary or list).
     :return: A bytes object representing the Base64-encoded text file.
     """
-    print("here")
     # Serialize the JSON data to a string
     json_string = json.dumps(json_data)
-    print("here1")
 
     # Encode the JSON string to Base64
     b64_encoded = base64.b64encode(json_string.encode('utf-8'))

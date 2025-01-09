@@ -208,6 +208,8 @@ class PingCommand(Command):
                             retdict = handler.process_message(msg, b64_attachments)
                             returnMsg = retdict["message"]
                             returnAttachments = retdict["attachments"]
+                            print(f"retmessage {returnMsg}")
+                            print(f"attachment len {returnAttachments.len()}")
                         except Exception as e:
                             returnMsg += f"Handler {handler_name} exception: {e}"
                             returnAttachments = []
