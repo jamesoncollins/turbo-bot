@@ -112,21 +112,12 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     Returns:
         str: The assistant's response along with model details.
     """
-    # Initialize conversation history
-    if session_key:
-        conversation_history = load_conversation_history(session_key)
-    elif json_session:
-        conversation_history = json_session
-    else:
-        conversation_history = []
-        
-
-    # Append user's message to the conversation history
-    conversation_history.append({"role": "user", "content": user_input})
+    if not json_session:
+        json_session = []
 
     # Format the conversation history for the new API
     formatted_messages = [
-        {"role": msg["role"], "content": msg["content"]} for msg in conversation_history
+        {"role": msg["role"], "content": msg["content"]} for msg in json_session
     ]
 
     # Call the OpenAI API with the conversation history
@@ -141,15 +132,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     
     # Extract the assistant's response
     assistant_message = response.choices[0].message
-    conversation_history.append(assistant_message)
+    json_session.append(assistant_message)
 
-    # Save updated conversation history if session_key is provided
-    if session_key:
-        save_conversation_history(session_key, conversation_history)
-
-    # Convert the chat history to a JSON string
-    json_session = json.dumps(conversation_history)
-    
     print(json_session)
 
     # Prepare model details
