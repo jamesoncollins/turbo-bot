@@ -209,7 +209,7 @@ class PingCommand(Command):
                             returnMsg = retdict["message"]
                             returnAttachments = retdict["attachments"]
                             print(f"retmessage {returnMsg}")
-                            print(f"attachment len {returnAttachments.len()}")
+                            print(f"attachment len {len(returnAttachments)}")
                         except Exception as e:
                             returnMsg += f"Handler {handler_name} exception: {e}"
                             returnAttachments = []
