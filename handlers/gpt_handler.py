@@ -135,8 +135,10 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     except Exception as e:
         # Code to handle the exception
         print(f"An error occurred: {e}")
-        return {"messge": f"An error occurred: {e}", "attachments": []}
-
+        return {"message": f"An error occurred: {e}", "attachments": []}
+    
+    print(response)
+    
     # Extract the assistant's response
     assistant_message = response.choices[0].message
     conversation_history.append(assistant_message)
