@@ -177,34 +177,24 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
 
 
 def json_to_base64_text_file(json_data):
-    """
-    Creates a Base64-encoded text file from JSON data without saving it to disk.
-    
-    :param json_data: The JSON data to encode (Python dictionary or list).
-    :return: A bytes object representing the Base64-encoded text file.
-    """
-    # Serialize the JSON data to a string
-    json_string = json.dumps(json_data)
-    print(f"json string is {json_string}")
 
-    # Encode the JSON string to Base64
-    b64_encoded = base64.b64encode(json_string.encode('utf-8').decode('utf-8'))
-            
+    try:
+        input_data = json.dump(json_data)
+        
+        # Convert the input string to bytes
+        input_bytes = input_data.encode('utf-8')
+
+        # Encode the bytes to Base64
+        base64_encoded = base64.b64encode(input_bytes).decode('utf-8')
+        
         # Construct the MIME data
-    mime_data = f"data:text/plain;name=log.txt;base64,{b64_encoded}"
-    print(f"mime_data {mime_data}") 
-    return mime_data.encode('utf-8')
-    return b64_encoded
-
-    # Create a virtual file
-    virtual_file = io.BytesIO()
-    virtual_file.write(b64_encoded)
-    virtual_file.seek(0)  # Rewind the file to the beginning
-    
-    # Get the contents of the virtual file as bytes
-    bbytes = virtual_file.read()
-
-    return bbytes
+        mime_type = "text/plain"        
+        mime_data = f"data:{mime_type};name=log.txtbase64,{base64_encoded}"
+        
+        # Return MIME data as bytes
+        return mime_data.encode('utf-8')
+    except Exception as e:
+        raise ValueError(f"An error occurred: {e}")
 
 def base64_text_file_to_json(b64_file_content):
     """
