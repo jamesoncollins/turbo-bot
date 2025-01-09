@@ -6,6 +6,7 @@ from openai import OpenAI
 import warnings
 import base64
 import io
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 
 key = os.environ.get("OPENAI_API_KEY", "")
@@ -135,7 +136,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     
     # Extract the assistant's response
     assistant_message = response.choices[0].message
-    json_session.append(assistant_message)
+    json_session.append(model_dump_json(assistant_message))
 
     print(json_session)
 
