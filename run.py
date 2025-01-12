@@ -194,6 +194,18 @@ class PingCommand(Command):
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")
             sys.exit(1)
+        elif msg == "#help":
+            handler_classes = BaseHandler.get_all_handlers()
+            retmsg = ""
+            for handler_class in handler_classes:
+                try:
+                    handler_name = handler_class.get_name()
+                    handler_help_string = handler_class.get_help()
+                    msg += f"{handler_name}:\n"
+                    msg += f"{handler_help_string}\n\n"
+                except Exception as e:
+                    print(f"Handler {handler_name} exception: {e}")
+            c.reply(  LOGMSG + retmsg )
         else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
