@@ -198,12 +198,14 @@ class PingCommand(Command):
             handler_classes = BaseHandler.get_all_handlers()
             retmsg = ""
             for handler_class in handler_classes:
+                handler_name = "Unknown"
                 try:
                     handler_name = handler_class.get_name()
-                    handler_help_string = handler_class.get_help()
-                    msg += f"{handler_name}:\n"
-                    msg += f"{handler_help_string}\n\n"
+                    handler_help_string = handler_class.get_help_text()
+                    retmsg += f"{handler_name}:\n"
+                    retmsg += f"{handler_help_string}\n\n"
                 except Exception as e:
+                    retmsg += f"{handler_name} help text is not enabled \n\n"
                     print(f"Handler {handler_name} exception: {e}")
             c.reply(  LOGMSG + retmsg )
         else:
