@@ -115,6 +115,15 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
     """
     if not json_session:
         json_session = []
+    
+    
+    # control the gpt system prompts.
+    # this is the spot you might use for having different personailities    
+    if len(json_session) == 0:
+        json_session.append({"role": "system", "content": 
+             "You are a helpful chatbot for signal groups."
+                             }
+        )
         
     # Append user's message to the conversation history
     json_session.append({"role": "user", "content": user_input})
@@ -229,6 +238,9 @@ def find_first_text_file_base64(base64_files):
 
             # Attempt to decode the bytes as UTF-8 (text)
             decoded_text = decoded_bytes.decode('utf-8')
+            
+            #if contentType == "application/json":
+            #    return decoded_bytes.decode('utf-8')
 
             # If successful, return the original Base64 string
             return b64_file

@@ -167,7 +167,7 @@ class PingCommand(Command):
             print("unknown message type")
             return
         
-        print(f"source {source}, recipient {c.message.recipient()}, dest {destination}, group {group}, message type {c.message.type.name}")
+        print(f"source {source}, recipient: {c.message.recipient()}, dest: {destination}, group: {group}, message type: {c.message.type.name}")
 
         if msg is None:
             print("Message was None")
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         "phone_number": os.environ["BOT_NUMBER"]
     })
 
-    print('bot starting...')
+    print(f'bot starting, api {os.environ["SIGNAL_API_URL"]}, bot number: {os.environ["BOT_NUMBER"]} ...')
 
     # Parse environment variables
     contact_number = parse_env_var("CONTACT_NUMBERS")
