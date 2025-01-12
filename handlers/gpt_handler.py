@@ -58,8 +58,8 @@ class GptHandler(HashtagHandler):
        
         return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
 
-        
-    def get_help_text(self) -> str:
+    @staticmethod    
+    def get_help_text() -> str:
         retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
         retval += "Available models are:    \n"
         

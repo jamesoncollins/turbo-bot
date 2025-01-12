@@ -207,7 +207,7 @@ class PingCommand(Command):
                 except Exception as e:
                     retmsg += f"{handler_name} help text is not enabled \n\n"
                     print(f"Handler {handler_name} exception: {e}")
-            c.reply(  LOGMSG + retmsg )
+            await c.reply(  LOGMSG + retmsg )
         else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
@@ -230,7 +230,7 @@ class PingCommand(Command):
                         try:
                             await c.reply(  LOGMSG + returnMsg, base64_attachments=returnAttachments )
                         except Exception as e:
-                            c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
+                            await c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
                 except Exception as e:
                     print(f"Handler {handler_name} exception: {e}")
         return
