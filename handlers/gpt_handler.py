@@ -41,7 +41,7 @@ class GptHandler(HashtagHandler):
             self.hashtag_data["model"] = "dall-e-2"  
                       
         if self.hashtag_data["model"] in image_generation_models:
-            return { "messge": "image", "attachments": submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])}
+            return { "message": "image", "attachments": submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])}
         
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
