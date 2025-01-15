@@ -45,6 +45,14 @@ class BaseHandler:
             "attachments": processed_attachments,
         }
 
+    @staticmethod
+    def get_name() -> str:
+         raise NotImplementedError("Subclasses must implement this method.")
+
+    @staticmethod
+    def get_help_text() -> str:
+         raise NotImplementedError("Subclasses must implement this method.")
+
     def assign_context(self, context):
         self.context = context
 

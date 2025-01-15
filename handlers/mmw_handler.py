@@ -52,7 +52,8 @@ class mmwHandler(HashtagHandler):
         
         raise Exception("shouldnt get here")
         
-    def get_help_text(self) -> str:
+    @staticmethod    
+    def get_help_text() -> str:
         return "mmw help:\nAdd #mmw to your message to save it on the log.\n Type #mmw alone to retrieve the log"
 
     @staticmethod

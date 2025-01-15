@@ -13,27 +13,6 @@ start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
 
-import git
-import os
-
-def get_git_info():
-    """
-    Retrieves the current branch name, commit ID, and timestamp of the latest commit
-    from the Git repository.
-
-    Returns:
-        str: A formatted string with the branch name, commit ID, and timestamp on separate lines.
-             Returns "Not a Git repository" if not in a Git repository.
-    """
-    try:
-        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
-        branch_name = repo.active_branch.name
-        commit_id = repo.head.commit.hexsha
-        commit_time = datetime.fromtimestamp(repo.head.commit.committed_date).strftime('%Y-%m-%d %H:%M:%S')
-        
-        return f"Branch: {branch_name}\nCommit ID: {commit_id}\nTimestamp: {commit_time}"
-    except git.InvalidGitRepositoryError:
-        return "Not a Git repository"
 
 def find_group_by_internal_id(data, target_id):
     for entry in data:
@@ -167,7 +146,7 @@ class PingCommand(Command):
             print("unknown message type")
             return
         
-        print(f"source {source}, recipient {c.message.recipient()}, dest {destination}, group {group}, message type {c.message.type.name}")
+        print(f"source {source}, recipient: {c.message.recipient()}, dest: {destination}, group: {group}, message type: {c.message.type.name}")
 
         if msg is None:
             print("Message was None")
@@ -194,6 +173,20 @@ class PingCommand(Command):
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")
             sys.exit(1)
+        elif msg == "#help":
+            handler_classes = BaseHandler.get_all_handlers()
+            retmsg = ""
+            for handler_class in handler_classes:
+                handler_name = "Unknown"
+                try:
+                    handler_name = handler_class.get_name()
+                    handler_help_string = handler_class.get_help_text()
+                    retmsg += f"{handler_name}:\n"
+                    retmsg += f"{handler_help_string}\n\n"
+                except Exception as e:
+                    retmsg += f"{handler_name} help text is not enabled \n\n"
+                    print(f"Handler {handler_name} exception: {e}")
+            await c.reply(  LOGMSG + retmsg )
         else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
@@ -208,13 +201,15 @@ class PingCommand(Command):
                             retdict = handler.process_message(msg, b64_attachments)
                             returnMsg = retdict["message"]
                             returnAttachments = retdict["attachments"]
+                            print(f"retmessage {returnMsg}")
+                            print(f"attachment len {len(returnAttachments)}")
                         except Exception as e:
                             returnMsg += f"Handler {handler_name} exception: {e}"
                             returnAttachments = []
                         try:
                             await c.reply(  LOGMSG + returnMsg, base64_attachments=returnAttachments )
                         except Exception as e:
-                            c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
+                            await c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
                 except Exception as e:
                     print(f"Handler {handler_name} exception: {e}")
         return
@@ -225,7 +220,7 @@ if __name__ == "__main__":
         "phone_number": os.environ["BOT_NUMBER"]
     })
 
-    print('bot starting...')
+    print(f'bot starting, api {os.environ["SIGNAL_API_URL"]}, bot number: {os.environ["BOT_NUMBER"]} ...')
 
     # Parse environment variables
     contact_number = parse_env_var("CONTACT_NUMBERS")
