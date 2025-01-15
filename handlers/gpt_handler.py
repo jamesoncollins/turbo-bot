@@ -178,7 +178,7 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
         response_format="b64_json",
     )
 
-    return { "message": response.data[0].revised_prompt, "attachments": response.data[0].b64_json }
+    return { "message": response.data[0].revised_prompt, "attachments": [response.data[0].b64_json] }
 
 
 
