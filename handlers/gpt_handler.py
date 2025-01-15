@@ -38,10 +38,10 @@ class GptHandler(HashtagHandler):
             return {"message": self.get_help_text(), "attachments": []}
         
         if self.hashtag_data["model"] == "image":
-            self.hashtag_data["model"] = "dall-e-2"  
+            self.hashtag_data["model"] = "dall-e-3"  
                       
         if self.hashtag_data["model"] in image_generation_models:
-            return { "message": "image", "attachments": submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])}
+            return  submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
         
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
@@ -177,9 +177,8 @@ def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
         #size="256x256",
         response_format="b64_json",
     )
-    print(response.data[0].revised_prompt)
-    #print(response.data[0].url)
-    return [response.data[0].b64_json]
+
+    return { "message": response.data[0].revised_prompt, "attachments": response.data[0].b64_json }
 
 
 
