@@ -13,9 +13,6 @@ start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
 
-import git
-import os
-
 
 def find_group_by_internal_id(data, target_id):
     for entry in data:
