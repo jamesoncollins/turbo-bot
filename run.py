@@ -16,24 +16,6 @@ LOGMSG = "----TURBOBOT----\n"
 import git
 import os
 
-def get_git_info():
-    """
-    Retrieves the current branch name, commit ID, and timestamp of the latest commit
-    from the Git repository.
-
-    Returns:
-        str: A formatted string with the branch name, commit ID, and timestamp on separate lines.
-             Returns "Not a Git repository" if not in a Git repository.
-    """
-    try:
-        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
-        branch_name = repo.active_branch.name
-        commit_id = repo.head.commit.hexsha
-        commit_time = datetime.fromtimestamp(repo.head.commit.committed_date).strftime('%Y-%m-%d %H:%M:%S')
-        
-        return f"Branch: {branch_name}\nCommit ID: {commit_id}\nTimestamp: {commit_time}"
-    except git.InvalidGitRepositoryError:
-        return "Not a Git repository"
 
 def find_group_by_internal_id(data, target_id):
     for entry in data:

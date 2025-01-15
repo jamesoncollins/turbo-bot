@@ -121,3 +121,26 @@ def parse_env_var(env_var, delimiter=";"):
         return value.split(delimiter)  # Return as a list
     else:
         return [value]  # Single value as a list
+    
+def get_git_info():
+    """
+    Retrieves the current branch name, commit ID, timestamp, and committer name
+    of the latest commit from the Git repository.
+
+    Returns:
+        str: A formatted string with the branch name, commit ID, timestamp, and committer name
+             on separate lines. Returns "Not a Git repository" if not in a Git repository.
+    """
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
+        branch_name = repo.active_branch.name
+        commit_id = repo.head.commit.hexsha
+        commit_time = datetime.fromtimestamp(repo.head.commit.committed_date).strftime('%Y-%m-%d %H:%M:%S')
+        committer_name = repo.head.commit.committer.name
+
+        return (f"Branch: {branch_name}\n"
+                f"Commit ID: {commit_id}\n"
+                f"Timestamp: {commit_time}\n"
+                f"Committer: {committer_name}")
+    except git.InvalidGitRepositoryError:
+        return "Not a Git repository"
