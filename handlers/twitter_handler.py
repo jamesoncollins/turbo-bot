@@ -15,11 +15,13 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
 class TwitterHandler(BaseHandler):
 
     def can_handle(self) -> bool:
-        extractors = yt_dlp.extractor.gen_extractors()
-        for e in extractors:
-            if e.suitable(url) and e.IE_NAME != 'generic':
-                return True
-        return False
+        url = self.extract_url(self.input_str)
+        ydl = yt_dlp.YoutubeDL({'quiet': True})
+        try:
+            info = ydl.extract_info(url, download=False)
+            return True
+        except Exception:
+            return False
 
     def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
