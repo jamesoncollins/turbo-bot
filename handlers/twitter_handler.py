@@ -15,7 +15,7 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
 class TwitterHandler(BaseHandler):
 
     def can_handle(self) -> bool:
-        extractors = youtube_dl.extractor.gen_extractors()
+        extractors = yt_dlp.extractor.gen_extractors()
         for e in extractors:
             if e.suitable(url) and e.IE_NAME != 'generic':
                 return True
@@ -26,14 +26,14 @@ class TwitterHandler(BaseHandler):
         video_content = download_video(url)
         if video_content:
             return {
-                "message": "Downloaded video content from Twitter/X.",
+                "message": "Downloaded video content using yt_dlp.",
                 "attachments": [BaseHandler.file_to_base64(video_content)],
             }
         return []
 
     @staticmethod
     def get_name() -> str:
-        return "TwitterHandler"
+        return "yt_dlp Handler"
     
 def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
     """
