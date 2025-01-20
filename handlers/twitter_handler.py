@@ -12,12 +12,14 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         self.filenames.append(information["filepath"])
         return [], information
 
-class TwitterHandler(BaseHandler):
-    ALLOWED_DOMAINS = ["twitter.com", "x.com", "www.tiktok.com", "tiktok.com", "youtube.com", "youtu.be"]
+class TwitterHandler(BaseHandler):
 
     def can_handle(self) -> bool:
-        url = self.extract_url(self.input_str)
-        return url and self.is_url_in_domains(url, self.ALLOWED_DOMAINS)
+        extractors = youtube_dl.extractor.gen_extractors()
+        for e in extractors:
+            if e.suitable(url) and e.IE_NAME != 'generic':
+                return True
+        return False
 
     def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
