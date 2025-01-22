@@ -16,7 +16,7 @@ class InstaHandler(BaseHandler):
         video_content = download_instagram_video_as_b64(url)
         if video_content:
             return {
-                "message": "Downloaded video content from Twitter/X.",
+                "message": "Downloaded video content via instaloader.",
                 "attachments": [video_content],
             }
         return []
