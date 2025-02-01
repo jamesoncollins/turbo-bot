@@ -12,26 +12,30 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         self.filenames.append(information["filepath"])
         return [], information
 
-class TwitterHandler(BaseHandler):
-    ALLOWED_DOMAINS = ["twitter.com", "x.com", "www.tiktok.com", "tiktok.com", "youtube.com", "youtu.be"]
+class TwitterHandler(BaseHandler):
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
-        return url and self.is_url_in_domains(url, self.ALLOWED_DOMAINS)
+        ydl = yt_dlp.YoutubeDL({'quiet': True})
+        try:
+            info = ydl.extract_info(url, download=False)
+            return True
+        except Exception:
+            return False
 
     def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
         video_content = download_video(url)
         if video_content:
             return {
-                "message": "Downloaded video content from Twitter/X.",
+                "message": "Downloaded video content using yt_dlp.",
                 "attachments": [BaseHandler.file_to_base64(video_content)],
             }
         return []
 
     @staticmethod
     def get_name() -> str:
-        return "TwitterHandler"
+        return "yt_dlp Handler"
     
 def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
     """
