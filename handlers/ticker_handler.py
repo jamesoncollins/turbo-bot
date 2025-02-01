@@ -1,9 +1,47 @@
-from utils.misc_utils import *
 
+import os
+from handlers.base_handler import BaseHandler
+import sys
+import os
+
+# Get the current script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Get the parent directory by going one level up
+parent_dir = os.path.dirname(current_dir)
+
+# Add the parent directory to sys.path
+sys.path.append(parent_dir)
+
+from utils.misc_utils import *
 
 import yfinance as yf
 import re
 import matplotlib.pyplot as plt
+
+class TickerHandler(BaseHandler):
+
+    def can_handle(self) -> bool:
+        self.tickers = extract_ticker_symbols(self.input_str)
+        return (len(self.tickers)>0)
+
+    def process_message(self, msg, attachments):
+        if self.tickers:
+            return {
+                "message": get_stock_summary( convert_to_get_stock_summary_input(self.tickers) ),
+                "attachments": [plot_stock_data_base64(self.tickers)],
+            }
+        return []
+
+    @staticmethod
+    def get_name() -> str:
+        return "TickerHandler"
+    
+    @staticmethod    
+    def get_help_text() -> str:
+        retval = "Gets stock info for any ticker after '$'.  i.e. $amd. \n"
+        retval += "Optoinally add a during, i.e. $amd.5y   \n"
+        return retval
 
 def get_stock_summary(ticker_symbols):
     """
@@ -88,7 +126,7 @@ def plot_stock_data_base64(ticker_symbols):
 
     # Ensure $SPY is included
     if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in ticker_symbols):
-        ticker_symbols.append(("SPY", "1y"))
+        ticker_symbols.insert(0,("SPY", "1y"))
 
     # Determine the longest duration
     durations = [duration for _, duration in ticker_symbols]

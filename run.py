@@ -158,11 +158,6 @@ class PingCommand(Command):
             video_b64 = download_reddit_video_tryall_b64(url)            
             if (video_b64):
                 await c.reply(  LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
-        elif (tickers := extract_ticker_symbols(msg)):
-            print("is ticker")
-            plot_b64 = plot_stock_data_base64(tickers)
-            summary = get_stock_summary( convert_to_get_stock_summary_input(tickers) )
-            await c.reply(  LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
             git_info = get_git_info()

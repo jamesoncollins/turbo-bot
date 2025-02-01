@@ -31,7 +31,7 @@ class RunTest(ChatTestCase):
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
     async def test_ticker(self, receive_mock, send_mock):
-        receive_mock.define(["$amd"])
+        receive_mock.define(["$amd.5y"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
         #self.assertEqual(send_mock.call_args_list[0].args[1], LOGMSG + "Pong")
