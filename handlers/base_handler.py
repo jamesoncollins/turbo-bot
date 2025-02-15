@@ -25,24 +25,33 @@ class BaseHandler:
             bool: True if the handler can process the input, False otherwise.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-
-    def get_attachments(self) -> list:
-        """
-        Extracts attachments from the input string.
-
+    
+    def process_message(self, msg, attachments):
+        """Process a string and attachments.
+        
+        Args:
+            input_str (str): The main input string.
+            attachments (list): A list of Base64-encoded file strings.
+        
         Returns:
-            list: A list of base64-encoded files.
+            dict: A dictionary containing processed message and attachments.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        # Generate the processed message and attachments
+        processed_message = self.get_message()
+        processed_attachments = self.get_attachments()
+        
+        return {
+            "message": processed_message,
+            "attachments": processed_attachments,
+        }
 
-    def get_message(self) -> str:
-        """
-        Generates a reply message based on the input string.
+    @staticmethod
+    def get_name() -> str:
+         raise NotImplementedError("Subclasses must implement this method.")
 
-        Returns:
-            str: The generated reply message.
-        """
-        raise NotImplementedError("Subclasses must implement this method.")
+    @staticmethod
+    def get_help_text() -> str:
+         raise NotImplementedError("Subclasses must implement this method.")
 
     def assign_context(self, context):
         self.context = context

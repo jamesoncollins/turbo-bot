@@ -10,6 +10,7 @@ class mmwTest(ChatTestCase):
         super().setUp()
         group = {"id": "asdf", "name": "Test"}
         self.signal_bot._groups_by_internal_id = {"group_id1=": group}
+        self.signal_bot.groups = [{"internal_id": "group_id1=", "name": "fake group"}]
         self.signal_bot.register(PingCommand(), contacts=True, groups=True)
 
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
@@ -26,7 +27,7 @@ class mmwTest(ChatTestCase):
         receive_mock.define(["#mmw test"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual( LOGMSG in send_mock.call_args_list[0].args[1], True )
+        self.assertEqual( "exception" in send_mock.call_args_list[0].args[1], False )
 
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
@@ -39,7 +40,7 @@ class mmwTest(ChatTestCase):
         receive_mock.define([text])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual( LOGMSG in send_mock.call_args_list[0].args[1], True )
+        self.assertEqual( "exception" in send_mock.call_args_list[0].args[1], False )
         print(send_mock.call_args_list[0].args[1])
 
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
@@ -48,7 +49,7 @@ class mmwTest(ChatTestCase):
         receive_mock.define(["#mmw"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual( LOGMSG in send_mock.call_args_list[0].args[1], True )
+        self.assertEqual( "exception" in send_mock.call_args_list[0].args[1], False )
         print(send_mock.call_args_list[0].args[1])
 
 if __name__ == "__main__":

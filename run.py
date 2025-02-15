@@ -1,36 +1,18 @@
 import os
 import sys
-from signalbot import SignalBot, Command, Context
+from signalbot_local.signalbot import SignalBot, Command, Context
 import re
 import time
 import base64
 from handlers.base_handler import BaseHandler
 from utils import *
-import time
 from pickle import NONE
+from datetime import datetime
 
 start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
 
-import git
-import os
-
-def get_git_info():
-    """
-    Retrieves the current branch name and commit ID of the Git repository.
-
-    Returns:
-        tuple: A tuple containing the branch name and commit ID.
-               Returns (None, None) if not in a Git repository.
-    """
-    try:
-        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
-        branch_name = repo.active_branch.name
-        commit_id = repo.head.commit.hexsha
-        return branch_name, commit_id
-    except git.InvalidGitRepositoryError:
-        return None, None
 
 def find_group_by_internal_id(data, target_id):
     for entry in data:
@@ -107,6 +89,16 @@ class PingCommand(Command):
         # this will be the same as source or group above
         recipient = c.message.recipient()
         
+        # try to get quote info.  currently this is a try becuase i dont know
+        # how it looks for a data message
+        try:
+            quote_msg = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
+            quote_author = quote_msg["author"]
+            quote_text = quote_msg["text"]
+            quote_attachments = quote_msg["attachments"]
+        except:
+            pass
+        
         # was this a 1on1 message, or a group message?
         destination = NONE
         desintation_uuid = None
@@ -154,7 +146,7 @@ class PingCommand(Command):
             print("unknown message type")
             return
         
-        print(f"source {source}, recipient {c.message.recipient()}, dest {destination}, group {group}, message type {c.message.type.name}")
+        print(f"source {source}, recipient: {c.message.recipient()}, dest: {destination}, group: {group}, message type: {c.message.type.name}")
 
         if msg is None:
             print("Message was None")
@@ -166,80 +158,56 @@ class PingCommand(Command):
             video_b64 = download_reddit_video_tryall_b64(url)            
             if (video_b64):
                 await c.reply(  LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
-        elif "instagram.com" in msg:
-            print("is insta")
-            url = extract_url(msg, "instagram.com")
-            video_b64 = download_instagram_video_as_b64(url)
-            await c.reply(  LOGMSG + "IntsgramURL: " + url, base64_attachments=[video_b64])  
-        elif (tickers := extract_ticker_symbols(msg)):
-            print("is ticker")
-            plot_b64 = plot_stock_data_base64(tickers)
-            summary = get_stock_summary( convert_to_get_stock_summary_input(tickers) )
-            await c.reply(  LOGMSG + summary, base64_attachments=[plot_b64])  
         elif msg == "#":
             print("is hash")
-            branch, commit = get_git_info()
+            git_info = get_git_info()
             str = f"Uptime: {(time.time() - start_time)} seconds\n"
-            if branch and commit:
-                str += f"Branch: {branch}\n"
-                str += f"Commit ID: {commit}\n"
-            else:
-                str += "Not in a Git repository."
+            str += git_info
             await c.reply(  LOGMSG + "I am here.\n" + str)            
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")
             sys.exit(1)
+        elif msg == "#help":
+            handler_classes = BaseHandler.get_all_handlers()
+            retmsg = ""
+            for handler_class in handler_classes:
+                handler_name = "Unknown"
+                try:
+                    handler_name = handler_class.get_name()
+                    handler_help_string = handler_class.get_help_text()
+                    retmsg += f"{handler_name}:\n"
+                    retmsg += f"{handler_help_string}\n\n"
+                except Exception as e:
+                    retmsg += f"{handler_name} help text is not enabled \n\n"
+                    print(f"Handler {handler_name} exception: {e}")
+            await c.reply(  LOGMSG + retmsg )
         else:
             handler_classes = BaseHandler.get_all_handlers()
             for handler_class in handler_classes:
                 try:
                     handler_name = handler_class.get_name()
                     handler = handler_class(msg)
-                    handler.assign_context(c)
+                    handler.assign_context(c)                    
                     if handler.can_handle():
                         print("Handler Used:", handler_class.get_name())
-                        msg = handler.get_message()
+                        returnMsg = ""
                         try:
-                            attachments = handler.get_attachments()
+                            retdict = handler.process_message(msg, b64_attachments)
+                            returnMsg = retdict["message"]
+                            returnAttachments = retdict["attachments"]
+                            print(f"retmessage {returnMsg}")
+                            print(f"attachment len {len(returnAttachments)}")
                         except Exception as e:
-                            msg += "\nfailed to download\n"
-                            msg += "Handler {handler_name} exception: {e}"
-                            attachments = []
+                            returnMsg += f"Handler {handler_name} exception: {e}"
+                            returnAttachments = []
                         try:
-                            await c.reply(  LOGMSG + msg, base64_attachments=attachments )
+                            await c.reply(  LOGMSG + returnMsg, base64_attachments=returnAttachments )
                         except Exception as e:
-                             c.reply(  LOGMSG + msg + "failed to send signal message" )
-                        #return
+                            await c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
                 except Exception as e:
                     print(f"Handler {handler_name} exception: {e}")
         return
-
-
-def parse_env_var(env_var, delimiter=";"):
-    """
-    Parses an environment variable and returns a list, a boolean, or None.
-    
-    Args:
-        env_var (str): The name of the environment variable.
-        delimiter (str): The delimiter used for splitting lists.
-        
-    Returns:
-        list, bool, or None: Parsed value from the environment variable.
-    """
-    value = os.environ.get(env_var, None)
-    if value is None or value.strip() == "":
-        return None  # Treat as "not supplied"
-    
-    #value = value.strip().lower()
-    
-    if value in {"true", "false"}:
-        return value == "true"  # Return as a Python boolean
-    elif delimiter in value:
-        return value.split(delimiter)  # Return as a list
-    else:
-        return [value]  # Single value as a list
-
 
 if __name__ == "__main__":
     bot = SignalBot({
@@ -247,7 +215,7 @@ if __name__ == "__main__":
         "phone_number": os.environ["BOT_NUMBER"]
     })
 
-    print('bot starting...')
+    print(f'bot starting, api {os.environ["SIGNAL_API_URL"]}, bot number: {os.environ["BOT_NUMBER"]} ...')
 
     # Parse environment variables
     contact_number = parse_env_var("CONTACT_NUMBERS")

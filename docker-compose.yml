@@ -26,20 +26,17 @@ services:
     environment:
       GIT_REPO_URL: https://github.com/jamesoncollins/turbo-bot.git
       GIT_REPO_PATH: /root/git/turbo-bot/  # dont change this unless you change the volume below
-      GIT_REPO_BRANCH: main    
+      GIT_REPO_BRANCH: main  
+      SETUP_SCRIPT_NAME: setup.sh
     entrypoint: ["/bin/bash", "-c"]
     command: >
       '
-        mkdir -p $${GIT_REPO_PATH} &&
-        cd $${GIT_REPO_PATH} &&
-        ( (git init; git remote add origin $${GIT_REPO_URL}; git fetch; git checkout -t origin/$${GIT_REPO_BRANCH} -f) || true ) &&
-        cd $${GIT_REPO_PATH} &&
-        git config --global --add safe.directory $${GIT_REPO_PATH} &&
-        git reset --hard &&
-        git pull &&
-        pip install -r requirements.txt &&
-        apt -y install $(cat pkglist) &&
-        $${GIT_REPO_PATH}/run.sh
+        export SETUP_SCRIPT_URL="$${GIT_REPO_URL/\.git/}/raw/$${GIT_REPO_BRANCH}/$${SETUP_SCRIPT_NAME}"
+        echo SETUP_SCRIPT_URL is "$${SETUP_SCRIPT_URL}" && sleep 5 &&
+        echo cd && cd /tmp  &&
+        echo curl -o $$SETUP_SCRIPT_NAME -sfL "$${SETUP_SCRIPT_URL}" && curl -o $$SETUP_SCRIPT_NAME -sfL "$${SETUP_SCRIPT_URL}" &&
+        echo chmod && chmod +x "$$SETUP_SCRIPT_NAME" &&
+        echo launch && ./"$$SETUP_SCRIPT_NAME"
       '
     volumes:
       - signal-bot-data:/root/git/
@@ -56,19 +53,16 @@ services:
       GIT_REPO_URL: https://github.com/jamesoncollins/turbo-bot.git
       GIT_REPO_PATH: /root/git/turbo-bot/ # dont change this unless you change the volume below
       GIT_REPO_BRANCH: devel    
+      SETUP_SCRIPT_NAME: setup.sh
     entrypoint: ["/bin/bash", "-c"]
     command: >
       '
-        mkdir -p $${GIT_REPO_PATH} &&
-        cd $${GIT_REPO_PATH} &&
-        ( (git init; git remote add origin $${GIT_REPO_URL}; git fetch; git checkout -t origin/$${GIT_REPO_BRANCH} -f) || true ) &&
-        cd $${GIT_REPO_PATH} &&
-        git config --global --add safe.directory $${GIT_REPO_PATH} &&
-        git reset --hard &&
-        git pull &&
-        pip install -r requirements.txt &&
-        apt -y install $(cat pkglist) &&
-        $${GIT_REPO_PATH}/run.sh
+        export SETUP_SCRIPT_URL="$${GIT_REPO_URL/\.git/}/raw/$${GIT_REPO_BRANCH}/$${SETUP_SCRIPT_NAME}"
+        echo SETUP_SCRIPT_URL is "$${SETUP_SCRIPT_URL}" && sleep 5 &&
+        echo cd && cd /tmp  &&
+        echo curl -o $$SETUP_SCRIPT_NAME -sfL "$${SETUP_SCRIPT_URL}" && curl -o $$SETUP_SCRIPT_NAME -sfL "$${SETUP_SCRIPT_URL}" &&
+        echo chmod && chmod +x "$$SETUP_SCRIPT_NAME" &&
+        echo launch && ./"$$SETUP_SCRIPT_NAME"
       '
     volumes:
       - signal-bot-devel-data:/root/git/ 

@@ -12,32 +12,32 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         self.filenames.append(information["filepath"])
         return [], information
 
-class TwitterHandler(BaseHandler):
-    ALLOWED_DOMAINS = ["twitter.com", "x.com", "www.tiktok.com", "tiktok.com", "youtube.com", "youtu.be"]
+class TwitterHandler(BaseHandler):
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
-        return url and self.is_url_in_domains(url, self.ALLOWED_DOMAINS)
+        ydl = yt_dlp.YoutubeDL({'quiet': True})
+        try:
+            info = ydl.extract_info(url, download=False)
+            return True
+        except Exception:
+            return False
 
-    def get_attachments(self) -> list:
+    def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
-        video_content = download_video_with_limit(url)
+        video_content = download_video(url)
         if video_content:
-            return [BaseHandler.file_to_base64(video_content)]
+            return {
+                "message": "Downloaded video content using yt_dlp.",
+                "attachments": [BaseHandler.file_to_base64(video_content)],
+            }
         return []
-
-    def get_message(self) -> str:
-        return "Downloaded video content from Twitter/X."
 
     @staticmethod
     def get_name() -> str:
-        return "TwitterHandler"
+        return "yt_dlp Handler"
     
-    
-def download_video(url: str) -> str:
-    return download_video_with_limit(url)
-
-def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
+def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video.mp4"):
     """
     Downloads the best quality video below the specified file size limit.
 
@@ -78,12 +78,19 @@ def download_video_with_limit(url, max_filesize_mb=90, suggested_filename="downl
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(url, download=True)
+            result = ydl.extract_info(url, download=True)            
             actual_filename = ydl.prepare_filename(result)
     except FilesizeLimitError as e:
         print(f"Skipping download: {e}")
     except Exception as e:
         print(f"An error occurred: {e}")
+        
+    video_title = ""
+    try:
+        video_title = result["title"]
+    except:
+        pass
+    print(f"Video title is: {video_title}")
 
     return actual_filename
 
