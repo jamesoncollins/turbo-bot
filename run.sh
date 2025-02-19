@@ -5,7 +5,7 @@ PYTHON_SCRIPT="run.py"   # Replace with the name of your Python script
 CHECK_INTERVAL=10                # Time interval to check the repo for updates (in seconds)
 EXIT_FLAG_FILE="/tmp/exit_flag"  # File used to indicate when the script should exit
 PYTHON_PID_FILE="/tmp/python_pid" # File used to store the Python script's PID
-PYTHONPATH=${PYTHONPATH}:$(pwd)/signalbot_local/
+PYTHONPATH=$(pwd)/signalbot_local/
 
 echo PYTHONPATH is ${PYTHONPATH}
 
