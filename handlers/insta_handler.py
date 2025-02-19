@@ -8,6 +8,8 @@ class InstaHandler(BaseHandler):
     ALLOWED_DOMAINS = ["instagram.com", "www.instagram.com"]
 
     def can_handle(self) -> bool:
+        return False
+        
         url = self.extract_url(self.input_str)
         return url and self.is_url_in_domains(url, self.ALLOWED_DOMAINS)
 

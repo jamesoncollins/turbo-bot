@@ -1,6 +1,15 @@
-import os
+# allow importing of local signalbot
 import sys
-from signalbot_local.signalbot import SignalBot, Command, Context
+import os
+#current_dir = os.path.dirname(os.path.realpath(__file__))
+path_to_append = os.path.join(os.getcwd(), "/signalbot_local/")
+if os.path.exists(path_to_append):
+    sys.path.append(path_to_append)
+    print(f"Appended {path_to_append} to sys.path")
+else:
+    print(f"Path {path_to_append} does not exist")
+
+from signalbot import SignalBot, Command, Context
 import re
 import time
 import base64
