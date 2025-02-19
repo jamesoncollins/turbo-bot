@@ -1,9 +1,8 @@
 # allow importing of local signalbot
 import sys
 import os
-current_dir = os.path.abspath(__file__)
-current_dir = os.path.dirname(current_dir)
-path_to_append = os.path.join(current_dir, "/signalbot_local/")
+#current_dir = os.path.dirname(os.path.realpath(__file__))
+path_to_append = os.path.join(os.getcwd(), "/signalbot_local/")
 if os.path.exists(path_to_append):
     sys.path.append(path_to_append)
     print(f"Appended {path_to_append} to sys.path")
