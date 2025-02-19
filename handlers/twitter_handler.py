@@ -16,6 +16,8 @@ class TwitterHandler(BaseHandler):
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
+        if not url:
+            return False
         ydl = yt_dlp.YoutubeDL({'quiet': True})
         try:
             info = ydl.extract_info(url, download=False)
