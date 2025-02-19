@@ -7,6 +7,8 @@ EXIT_FLAG_FILE="/tmp/exit_flag"  # File used to indicate when the script should 
 PYTHON_PID_FILE="/tmp/python_pid" # File used to store the Python script's PID
 PYTHONPATH=${PYTHONPATH}:$(pwd)/signalbot_local/
 
+echo PYTHONPATH is ${PYTHONPATH}
+
 # Ensure no leftover flag or PID file exists
 rm -f "$EXIT_FLAG_FILE" "$PYTHON_PID_FILE"
 
