@@ -6,6 +6,10 @@ A docker compose file is used to run a signalbot, and the signal rest api.
 
 The signalbot docker will automatically get this repo and execute run.py.
 
+A second signalbot docker is made that checks out the devel branch instead of main.
+
+Both containers monitor the github repo and will automatic download updated code.
+
 
 ## Running
 
