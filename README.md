@@ -1,7 +1,21 @@
 # turbo-bot
 
-you need to make a secrets.txt file that has these vairables:
+## How this works
 
+A docker compose file is used to run a signalbot, and the signal rest api.
+
+The signalbot docker will automatically get this repo and execute run.py.
+
+A second signalbot docker is made that checks out the devel branch instead of main.
+
+Both containers monitor the github repo and will automatic download updated code.
+
+
+## Running
+
+Execute the docker compose file.  In the signalbot docker make sure you make a secrets.txt file that has these vairables:
+
+```
 export      SIGNAL_API_URL=signal-cli:8181 # URL for the signal-cli API
 export      BOT_NUMBER="+1555555555" # The registered Signal number for your bot
 export      CONTACT_NUMERS="+1555555555" # true/false, a single contact, a ; seperated list of contacts
@@ -10,6 +24,7 @@ export      IGNORE_GROUPS="TurboBot Devel"	#optional
 export      INSTA_USERNAME="myuser"
 export      INSTA_PASSWORD="mypassword"
 export      OPENAI_API_KEY="keygoeshere"
+```
       
 Update the docker-compose file to point the signal-cli bot(s) to your repo,
 or use this one.  Default file makes one for main branch and one for devel
@@ -60,7 +75,7 @@ Then you can run all the tests with `python3 -m unittest discover -s tests -p "t
 You can also do it in WSL 1 or 2.
 
 Some handlers might also require apt-get packages.  i.e. ffmpeg.  You can get 
-ffmpeg in miniconda or wsl.
+ffmpeg in miniconda (i.e. conda install ffmpeg) or wsl (via apt-get or whatever).
 
 
 
