@@ -67,7 +67,7 @@ async def reply(
         
         # some 1v1 messages are dataMesages, not syncMessages, and they dont have dest info
         try:
-            desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
+            desintation = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["destination"]
         except Exception as e:
             print(f"Failed to get desintation info, using NOT_NUMBER: {e}")
             desintation = os.environ["BOT_NUMBER"]
@@ -86,6 +86,8 @@ async def reply(
 
 class TurboBotCommand(Command):
     async def handle(self, c: Context):
+        
+        raw_message_json = json.loads(c.message.raw_message)
 
         # this will go away once signalbot is fixed
         # Parse environment variables
@@ -105,7 +107,7 @@ class TurboBotCommand(Command):
         source_number = c.message.source_number     # same as above
         source_uuid = c.message.source_uuid
         b64_attachments = c.message.base64_attachments        
-        source_name = c.message.raw_message["envelope"]["sourceName"]   # this is a display name, i.e. Bob Smith
+        source_name = raw_message_json["envelope"]["sourceName"]   # this is a display name, i.e. Bob Smith
         
         # this will be the same as source or group above
         recipient = c.message.recipient()
@@ -113,7 +115,7 @@ class TurboBotCommand(Command):
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
         try:
-            quote_msg = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
+            quote_msg = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["quote"]
             quote_author = quote_msg["author"]
             quote_text = quote_msg["text"]
             quote_attachments = quote_msg["attachments"]
@@ -132,10 +134,10 @@ class TurboBotCommand(Command):
             # many 1v1 messages come through as dataMessage, not syncMessage.
             # and, they dont have destination info, i assume becuase its implied?
             try:
-                destination = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
-                desintation_uuid = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destinationUuid"]
+                destination = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["destination"]
+                desintation_uuid = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["destinationUuid"]
             except Exception as e:
-                print(f"Failed to get desintation info, using NOT_NUMBER: {e}")
+                print(f"Failed to get desintation info, using BOT_NUMBER: {e}")
                 desintation = os.environ["BOT_NUMBER"]
                 
         elif c.message.is_group(): 
