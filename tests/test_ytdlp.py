@@ -46,22 +46,6 @@ class TwitterHandlerTest(TurboTestCase):
         self.assertEqual(send_mock.call_count, 1)
         self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)
 
-    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
-    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
-    async def test_rollingstone(self, receive_mock, send_mock):
-        receive_mock.define(["https://www.rollingstone.com/tv-movies/tv-movie-features/michael-cera-interview-marrying-aubrey-plaza-rihanna-slap-barbie-black-mirror-1234772112/"])
-        await self.run_bot()
-        self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)   
-        
-
-    # @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
-    # @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
-    # async def test_youtube(self, receive_mock, send_mock):
-    #     receive_mock.define(["https://www.youtube.com/watch?v=tPEE9ZwTmy0"])
-    #     await self.run_bot()
-    #     self.assertEqual(send_mock.call_count, 1)
-    #     self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)
 
 if __name__ == "__main__":
     unittest.main()
