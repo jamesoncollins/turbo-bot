@@ -1,8 +1,20 @@
 # allow importing of local signalbot
 import sys
 import os
-#current_dir = os.path.dirname(os.path.realpath(__file__))
-path_to_append = os.path.join(os.getcwd(), "/signalbot_local/")
+
+
+# method 1 (windows)
+current_dir = os.path.abspath(__file__)
+current_dir = os.path.dirname(current_dir)
+path_to_append = os.path.join(current_dir, "./signalbot_local/")
+if os.path.exists(path_to_append):
+    sys.path.append(path_to_append)
+    print(f"Appended {path_to_append} to sys.path")
+else:
+    print(f"Path {path_to_append} does not exist")
+    
+# method 2 (linux)
+path_to_append = os.path.join(os.getcwd(), "./signalbot_local/")
 if os.path.exists(path_to_append):
     sys.path.append(path_to_append)
     print(f"Appended {path_to_append} to sys.path")
@@ -72,7 +84,7 @@ async def reply(
             text_mode=text_mode,
             )
 
-class PingCommand(Command):
+class TurboBotCommand(Command):
     async def handle(self, c: Context):
 
         # this will go away once signalbot is fixed
@@ -239,7 +251,7 @@ if __name__ == "__main__":
     if contact_number is None and group_name is None:
         # Register for all contacts and groups
         print("registering bot for all contacts and groups")
-        bot.register(PingCommand())
+        bot.register(TurboBotCommand())
     elif contact_number is None or group_name is None:
         print("Must define contact and group, one may just be true or false")
         sys.exit(1)
@@ -255,7 +267,7 @@ if __name__ == "__main__":
         else:
             group_name = False
             
-        bot.register(PingCommand(), contacts=contact_number, groups=group_name)
+        bot.register(TurboBotCommand(), contacts=contact_number, groups=group_name)
         
     bot.start()
     
