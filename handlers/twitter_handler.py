@@ -93,7 +93,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             try:
                 ext = meta['entries'][0]['ext']
             except:
-                raise "cant get filename"
+                raise ValueError("cant get filename")
             
     except FilesizeLimitError as e:
         raise ValueError(f"error: {e}")
