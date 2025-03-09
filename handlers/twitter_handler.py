@@ -96,9 +96,9 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
                 raise "cant get filename"
             
     except FilesizeLimitError as e:
-        print(f"Skipping download: {e}")
+        raise f"error: {e}"
     except Exception as e:
-        print(f"An error occurred: {e}")
+        raise f"error: {e}"
         
     actual_filename = f"{suggested_filename}.{ext}"
     print(f"Video file is: {actual_filename}")
