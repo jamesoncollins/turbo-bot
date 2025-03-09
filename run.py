@@ -1,8 +1,20 @@
 # allow importing of local signalbot
 import sys
 import os
-#current_dir = os.path.dirname(os.path.realpath(__file__))
-path_to_append = os.path.join(os.getcwd(), "/signalbot_local/")
+
+
+# method 1 (windows)
+current_dir = os.path.abspath(__file__)
+current_dir = os.path.dirname(current_dir)
+path_to_append = os.path.join(current_dir, "./signalbot_local/")
+if os.path.exists(path_to_append):
+    sys.path.append(path_to_append)
+    print(f"Appended {path_to_append} to sys.path")
+else:
+    print(f"Path {path_to_append} does not exist")
+    
+# method 2 (linux)
+path_to_append = os.path.join(os.getcwd(), "./signalbot_local/")
 if os.path.exists(path_to_append):
     sys.path.append(path_to_append)
     print(f"Appended {path_to_append} to sys.path")
@@ -55,7 +67,7 @@ async def reply(
         
         # some 1v1 messages are dataMesages, not syncMessages, and they dont have dest info
         try:
-            desintation = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
+            desintation = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["destination"]
         except Exception as e:
             print(f"Failed to get desintation info, using NOT_NUMBER: {e}")
             desintation = os.environ["BOT_NUMBER"]
@@ -72,8 +84,10 @@ async def reply(
             text_mode=text_mode,
             )
 
-class PingCommand(Command):
+class TurboBotCommand(Command):
     async def handle(self, c: Context):
+        
+        raw_message_json = json.loads(c.message.raw_message)
 
         # this will go away once signalbot is fixed
         # Parse environment variables
@@ -93,7 +107,7 @@ class PingCommand(Command):
         source_number = c.message.source_number     # same as above
         source_uuid = c.message.source_uuid
         b64_attachments = c.message.base64_attachments        
-        source_name = c.message.raw_message["envelope"]["sourceName"]   # this is a display name, i.e. Bob Smith
+        source_name = raw_message_json["envelope"]["sourceName"]   # this is a display name, i.e. Bob Smith
         
         # this will be the same as source or group above
         recipient = c.message.recipient()
@@ -101,7 +115,7 @@ class PingCommand(Command):
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
         try:
-            quote_msg = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
+            quote_msg = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["quote"]
             quote_author = quote_msg["author"]
             quote_text = quote_msg["text"]
             quote_attachments = quote_msg["attachments"]
@@ -120,10 +134,10 @@ class PingCommand(Command):
             # many 1v1 messages come through as dataMessage, not syncMessage.
             # and, they dont have destination info, i assume becuase its implied?
             try:
-                destination = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destination"]
-                desintation_uuid = c.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["destinationUuid"]
+                destination = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["destination"]
+                desintation_uuid = raw_message_json["envelope"]["syncMessage"]["sentMessage"]["destinationUuid"]
             except Exception as e:
-                print(f"Failed to get desintation info, using NOT_NUMBER: {e}")
+                print(f"Failed to get desintation info, using BOT_NUMBER: {e}")
                 desintation = os.environ["BOT_NUMBER"]
                 
         elif c.message.is_group(): 
@@ -239,7 +253,7 @@ if __name__ == "__main__":
     if contact_number is None and group_name is None:
         # Register for all contacts and groups
         print("registering bot for all contacts and groups")
-        bot.register(PingCommand())
+        bot.register(TurboBotCommand())
     elif contact_number is None or group_name is None:
         print("Must define contact and group, one may just be true or false")
         sys.exit(1)
@@ -255,7 +269,7 @@ if __name__ == "__main__":
         else:
             group_name = False
             
-        bot.register(PingCommand(), contacts=contact_number, groups=group_name)
+        bot.register(TurboBotCommand(), contacts=contact_number, groups=group_name)
         
     bot.start()
     
