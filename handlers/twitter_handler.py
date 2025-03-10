@@ -140,8 +140,10 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     actual_filename = f"{suggested_filename}.{ext}"
     print(f"Video file is: {actual_filename}")
     
-    convert_to_mp4(actual_filename, actual_filename, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
-
+    os.rename(actual_filename, actual_filename+".in")
+    output_fname = convert_to_mp4(actual_filename+".in", actual_filename, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
+    os.rename(output_fname, actual_filename)
+    
     return actual_filename
 
 
