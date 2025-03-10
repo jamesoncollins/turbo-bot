@@ -60,8 +60,10 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             print("Download complete. Processing...")
 
     def filesize_limiter(info_dict, *args, **kwargs):
+        max_max_filesize_mb = 1500
         filesize = info_dict.get('filesize', 0) or info_dict.get('filesize_approx', 0)
-        if filesize and filesize > max_filesize_mb * 1024 * 1024:
+        filesize = int(filesize)
+        if filesize > max_max_filesize_mb * 1024 * 1024:
             raise FilesizeLimitError("File size exceeds limit!")
 
     # try and delete the filename we're gonna use
@@ -77,12 +79,19 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
 
     formats = info.get("formats", [])
     
-    # Find a format under the size limit
+    # Find the largest format within the size limit
     selected_format = None
+    max_filesize = 0
     for fmt in formats:
-        if fmt.get("filesize") and fmt["filesize"] <= max_filesize_mb * 1024 * 1024:
-            selected_format = fmt["format_id"]
-            break
+        filesize = fmt.get("filesize", 0)
+        has_video = fmt.get("vcodec") != "none"
+        has_audio = fmt.get("acodec") != "none"
+        
+        if filesize and has_video and has_audio and filesize <= max_filesize_mb * 1024 * 1024:
+            if filesize > max_filesize:
+                max_filesize = filesize
+                selected_format = fmt["format_id"]
+    selected_format = None # its not working well...
 
     if selected_format:
         print(f"Found a format within size limit ({max_filesize_mb} MB). Downloading...")
@@ -95,20 +104,19 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
                 'preferedformat': 'mp4',
             }],
             'match_filter': filesize_limiter,
+            'max_filesize': '1.25G',
             'playlistend': 1                     # helps with twitter/dsky posts that have video in the comments
         }
     else:
         print("No suitable format found. Downloading best quality and compressing if needed.")
         ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'merge_output_format': 'mp4',
+            'format': 'best',
             'progress_hooks': [progress_hook],
             'outtmpl': f'{suggested_filename}.%(ext)s',
             'postprocessors': [{
                 'key': 'FFmpegVideoConvertor',
                 'preferedformat': 'mp4',
             }],
-            'match_filter': filesize_limiter,
             'playlistend': 1                     # helps with twitter/dsky posts that have video in the comments
         }
 
