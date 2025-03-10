@@ -31,9 +31,10 @@ class mmwHandler(HashtagHandler):
             raise Exception("mmw only works for groups")
 
         msg = self.context.message.text
-        sourceName = self.context.message.raw_message["envelope"]["sourceName"]
+        raw_message_json = json.loads(self.context.message.raw_message)
+        sourceName = raw_message_json["envelope"]["sourceName"]
         sourceName = sourceName if sourceName else "Unknown"        
-        sourceNumber = self.context.message.raw_message["envelope"]["sourceNumber"]
+        sourceNumber = raw_message_json["envelope"]["sourceNumber"]
         sourceNumber = sourceNumber if sourceNumber else "Unknown"        
        
         fname = f"{groupId_hashed}/mmw.json"

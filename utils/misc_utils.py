@@ -7,6 +7,7 @@ import json
 from cryptography.fernet import Fernet
 import git
 from datetime import datetime
+import ffmpeg
 
 # Append a dictionary to the JSON file
 def append_to_json_file(file_path, new_data, encryption_key=None):
@@ -145,3 +146,73 @@ def get_git_info():
                 f"Committer: {committer_name}")
     except git.InvalidGitRepositoryError:
         return "Not a Git repository"
+
+
+def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_resolution: tuple = (1280, 720)):
+    """
+    Convert a video file to MP4 format while ensuring it does not exceed a specified file size
+    and optionally limiting the maximum resolution. If the input file is already MP4 and within
+    the size limit, no conversion is performed.
+
+    Parameters:
+    - input_file (str): Path to the input video file.
+    - output_file (str): Path to save the converted MP4 file.
+    - max_size_mb (int): Maximum size of the output file in megabytes.
+    - max_resolution (tuple): Maximum resolution (width, height) for the output video.
+
+    Returns:
+    - str: Path to the converted file (or the original file if no conversion was needed).
+    """
+    # Get input file metadata
+    probe = ffmpeg.probe(input_file)
+    file_format = probe['format']['format_name']
+    duration = float(probe['format']['duration'])  # Video duration in seconds
+    file_size_mb = int(probe['format']['size']) / (1024 * 1024)  # Convert size to MB
+
+    # If the file is already MP4 and within the size limit, return the original file
+    if file_format == "mov,mp4,m4a,3gp,3g2,mj2" and file_size_mb <= max_size_mb:
+        print(f"Skipping conversion: {input_file} is already an MP4 and under {max_size_mb} MB.")
+        return input_file
+
+    # Get original video dimensions
+    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+    if not video_stream:
+        raise ValueError("No video stream found in the input file.")
+
+    original_width = int(video_stream['width'])
+    original_height = int(video_stream['height'])
+
+    # Calculate target bitrate (bits per second) to fit within max size
+    max_size_bytes = max_size_mb * 1024 * 1024
+    bitrate = (max_size_bytes * 8) / duration  # bits per second
+
+    # Ensure a minimum bitrate threshold
+    min_bitrate = 150000  # 150 kbps
+    bitrate = max(bitrate, min_bitrate)
+
+    # Adjust resolution if it exceeds max_resolution
+    target_width, target_height = original_width, original_height
+    if original_width > max_resolution[0] or original_height > max_resolution[1]:
+        scale_factor = min(max_resolution[0] / original_width, max_resolution[1] / original_height)
+        target_width = int(original_width * scale_factor)
+        target_height = int(original_height * scale_factor)
+
+        # Ensure width and height are even numbers (required by some codecs)
+        target_width = target_width if target_width % 2 == 0 else target_width - 1
+        target_height = target_height if target_height % 2 == 0 else target_height - 1
+
+    # Convert video using calculated bitrate and resolution
+    ffmpeg.input(input_file).output(
+        output_file,
+        vcodec="libx264",
+        acodec="aac",
+        video_bitrate=int(bitrate),
+        audio_bitrate="128k",
+        vf=f"scale={target_width}:{target_height}",
+        format="mp4"
+    ).run(overwrite_output=True)
+
+    return output_file
+
+# Example usage:
+# convert_to_mp4("input.avi", "output.mp4", max_size_mb=50, max_resolution=(1280, 720))
