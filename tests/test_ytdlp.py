@@ -49,7 +49,7 @@ class TwitterHandlerTest(TurboTestCase):
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
     async def test_badinsta(self, receive_mock, send_mock):
-        receive_mock.define(["https://www.instagram.com/reel/DEv3_vlMVNx"])
+        receive_mock.define(["https://youtu.be/HD9tvlQTe1I?si=3HEWEsl1hpOVJvun"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
         self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)
