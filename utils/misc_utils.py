@@ -187,8 +187,11 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
     bitrate = (max_size_bytes * 8) / duration  # bits per second
 
     # Ensure a minimum bitrate threshold
-    min_bitrate = 150000  # 150 kbps
-    bitrate = max(bitrate, min_bitrate)
+    #min_bitrate = 150000  # 150 kbps
+    #bitrate = max(bitrate, min_bitrate)
+    
+    bitrate = bitrate / 1024
+    bitrate = str(round(bitrate)-128) + "k"
 
     # Adjust resolution if it exceeds max_resolution
     target_width, target_height = original_width, original_height
@@ -206,7 +209,7 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
         output_file,
         vcodec="libx264",
         acodec="aac",
-        video_bitrate=int(bitrate),
+        video_bitrate=bitrate,
         audio_bitrate="128k",
         vf=f"scale={target_width}:{target_height}",
         format="mp4"
