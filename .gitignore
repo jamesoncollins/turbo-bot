@@ -9,3 +9,4 @@ __pycache__
 *secret*
 *.json*
 *.jpg
+/downloaded_video.mp4.in
