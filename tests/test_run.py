@@ -45,7 +45,12 @@ class RunTest(TurboTestCase):
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
 
-
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_gpt_read(self, receive_mock, send_mock):
+        receive_mock.define(["#gpt.read https://therationalleague.substack.com/p/why-maga-defends-everything-trump"])
+        await self.run_bot()
+        self.assertEqual(send_mock.call_count, 1)
 
 if __name__ == "__main__":
     unittest.main()
