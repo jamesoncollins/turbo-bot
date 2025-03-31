@@ -43,6 +43,9 @@ class GptHandler(HashtagHandler):
         if self.hashtag_data["model"] in image_generation_models:
             return  submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
         
+
+            
+        
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
         json_quoted_convo = None
@@ -55,6 +58,12 @@ class GptHandler(HashtagHandler):
             json_quoted_convo = base64_text_file_to_json(convo_b64)
         except:
             pass
+        
+        if self.hashtag_data["model"] == "read":
+            url = self.extract_url(msg)
+            url_text = extract_text_from_url(url)
+            msg = "Please summarize this text:\n" + url_text;
+            return submit_gpt(msg, json_quoted_convo, None, "gpt-4o-mini")
        
         return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
 
@@ -250,3 +259,23 @@ def find_first_text_file_base64(base64_files):
     # Return None if no text file is found
     return None
     
+import requests
+from bs4 import BeautifulSoup
+
+def extract_text_from_url(url):
+    try:
+        # Send HTTP request to the URL
+        response = requests.get(url)
+        response.raise_for_status()  # Raise exception for HTTP errors
+
+        # Parse the HTML content
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Extract and return all text
+        return soup.get_text(separator='\n', strip=True)
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching the URL: {e}")
+        return ""
+
+
