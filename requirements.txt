@@ -65,5 +65,5 @@ urllib3==2.3.0
 webencodings==0.5.1
 websockets==10.4
 yarl==1.18.3
-yfinance==0.2.54
+yfinance==0.2.59
 yt-dlp==2025.3.31
