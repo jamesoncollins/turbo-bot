@@ -48,11 +48,28 @@ class TwitterHandlerTest(TurboTestCase):
 
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
-    async def test_badinsta(self, receive_mock, send_mock):
-        receive_mock.define(["https://youtu.be/HD9tvlQTe1I?si=3HEWEsl1hpOVJvun"])
+    async def test_youtube(self, receive_mock, send_mock):
+        receive_mock.define(["https://www.youtube.com/watch?v=hj4TXUJadt4"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
         self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)
 
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_youtube_short(self, receive_mock, send_mock):
+        receive_mock.define(["https://www.youtube.com/shorts/hw3pZaVL9YQ"])
+        await self.run_bot()
+        self.assertEqual(send_mock.call_count, 1)
+        self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)
+
+    # reddit test, not actually using ytdlp if its reddit.com, i think
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_reddit(self, receive_mock, send_mock):
+        receive_mock.define(["https://www.reddit.com/r/TikTokCringe/s/Z3w1KP6KAc"])
+        await self.run_bot()
+        self.assertEqual(send_mock.call_count, 1)
+        self.assertEqual(len(send_mock.call_args[1]['base64_attachments']), 1)
+        
 if __name__ == "__main__":
     unittest.main()
