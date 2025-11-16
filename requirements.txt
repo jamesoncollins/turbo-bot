@@ -51,7 +51,7 @@ python-dateutil==2.9.0.post0
 pytubefix==8.8.5
 pytz==2024.2
 redis==4.6.0
-redvid==2.0.5
+redvid==2.0.6
 requests==2.32.3
 six==1.17.0
 smmap==5.0.1

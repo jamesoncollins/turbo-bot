@@ -68,9 +68,11 @@ For Windows I'd suggest using miniconda.
 
 Running the tests on your own windows or linux box is pretty easy.
 
-If on windows just install miniconda and then run `pip3 install -r requirements.txt`.
+If on windows just install miniconda, make a new environment, `conda install python==3` and then run `pip3 install -r requirements.txt`.
 
-Then you can run all the tests with `python3 -m unittest discover -s tests -p "test_*.py"`
+TODO: we should really match the version of python on the real system... which i just realized we dont control
+
+Then you can run all the tests with `python -m unittest discover -s tests -p "test_*.py"`
 
 You can also do it in WSL 1 or 2.
 
