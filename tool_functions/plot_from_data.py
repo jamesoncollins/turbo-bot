@@ -96,29 +96,35 @@ TOOL_SPEC: Dict = {
     "name": "plot_from_data",
     "function": {
         "name": "plot_from_data",
-        "description": "Generate a plot image from raw numeric data and return it as an attachment.",
+        "description": "Generate a plot image from raw numeric data and return it as an attachment. Provide 'y' or 'series'; do not call without data.",
         "parameters": {
             "type": "object",
+            "minProperties": 1,
+            "additionalProperties": False,
             "properties": {
                 "y": {
                     "type": "array",
                     "items": {"type": "number"},
                     "description": "Y values for a single series.",
+                    "minItems": 1,
                 },
                 "x": {
                     "type": "array",
                     "items": {"anyOf": [{"type": "number"}, {"type": "string"}]},
                     "description": "Optional X values for a single series.",
+                    "minItems": 1,
                 },
                 "labels": {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Optional labels for a single series (same length as y).",
+                    "minItems": 1,
                 },
                 "series": {
                     "type": "array",
                     "items": {
                         "type": "object",
+                        "additionalProperties": False,
                         "properties": {
                             "name": {"type": "string"},
                             "x": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "string"}]}},
@@ -127,6 +133,7 @@ TOOL_SPEC: Dict = {
                         },
                     },
                     "description": "Multiple series to plot.",
+                    "minItems": 1,
                 },
                 "title": {"type": "string"},
                 "xlabel": {"type": "string"},

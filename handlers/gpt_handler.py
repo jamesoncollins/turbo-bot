@@ -275,7 +275,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
     # this is the spot you might use for having different personailities    
     if len(json_session) == 0:
         json_session.append({"role": "system", "content": 
-             "You are a helpful chatbot for signal groups."
+             "You are a helpful chatbot for signal groups. This chat is single-shot only: "
+             "you must answer in one reply and must not ask follow-up questions. "
+             "If a change is needed, the user will send a new message."
                              }
         )
         
