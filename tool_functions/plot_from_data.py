@@ -7,7 +7,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def _plot_series(ax, series: dict, default_kind: str):
+def _plot_series(ax, series: dict, default_kind: str, categorical_labels: Optional[List[str]] = None):
     name = series.get("name")
     x_vals = series.get("x")
     y_vals = series.get("y")
@@ -17,6 +17,8 @@ def _plot_series(ax, series: dict, default_kind: str):
         raise ValueError("Series is missing 'y' values")
     if x_vals is None:
         x_vals = list(range(1, len(y_vals) + 1))
+    elif categorical_labels is not None:
+        x_vals = list(range(1, len(categorical_labels) + 1))
 
     if kind == "bar":
         ax.bar(x_vals, y_vals, label=name)
@@ -48,22 +50,33 @@ def plot_from_data(
         ylabel: Y-axis label.
         kind: One of line, scatter, bar (used for single series).
     """
+    categorical_labels = None
     if series is None:
         if y is None:
             raise ValueError("Provide 'y' or 'series'")
         if labels is not None:
             if len(labels) != len(y):
                 raise ValueError("'labels' length must match 'y' length")
-            x = labels
+            categorical_labels = labels
+            x = list(range(1, len(labels) + 1))
         series = [{"name": None, "x": x, "y": y, "kind": kind}]
+    else:
+        for entry in series:
+            x_vals = entry.get("x")
+            if x_vals and isinstance(x_vals[0], str):
+                categorical_labels = x_vals
+                break
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for entry in series:
-        _plot_series(ax, entry, kind)
+        _plot_series(ax, entry, kind, categorical_labels=categorical_labels)
 
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    if categorical_labels is not None:
+        ax.set_xticks(list(range(1, len(categorical_labels) + 1)))
+        ax.set_xticklabels(categorical_labels)
     if any(s.get("name") for s in series):
         ax.legend()
     ax.grid(True, alpha=0.3)
@@ -94,7 +107,7 @@ TOOL_SPEC: Dict = {
                 },
                 "x": {
                     "type": "array",
-                    "items": {"type": "number"},
+                    "items": {"anyOf": [{"type": "number"}, {"type": "string"}]},
                     "description": "Optional X values for a single series.",
                 },
                 "labels": {
@@ -108,7 +121,7 @@ TOOL_SPEC: Dict = {
                         "type": "object",
                         "properties": {
                             "name": {"type": "string"},
-                            "x": {"type": "array", "items": {"type": "number"}},
+                            "x": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "string"}]}},
                             "y": {"type": "array", "items": {"type": "number"}},
                             "kind": {"type": "string"},
                         },

@@ -167,6 +167,7 @@ def load_function_tools():
 def build_function_tool_outputs(response, tool_fns):
     tool_outputs = []
     tool_attachments = []
+    tool_errors = []
     output = getattr(response, "output", None) or []
     for item in output:
         item_type = getattr(item, "type", None)
@@ -191,15 +192,18 @@ def build_function_tool_outputs(response, tool_fns):
             args = json.loads(args_raw or "{}")
         except Exception as e:
             result = f"ERROR: Invalid JSON arguments for {tool_name}: {e}"
+            tool_errors.append(result)
         else:
             tool_fn = tool_fns.get(tool_name)
             if tool_fn is None:
                 result = f"ERROR: Unknown tool {tool_name}"
+                tool_errors.append(result)
             else:
                 try:
                     result = tool_fn(**args)
                 except Exception as e:
                     result = f"ERROR: {type(e).__name__}: {e}"
+                    tool_errors.append(result)
 
         output_text = result
         if isinstance(result, dict):
@@ -218,7 +222,7 @@ def build_function_tool_outputs(response, tool_fns):
             }
         )
 
-    return tool_outputs, tool_attachments
+    return tool_outputs, tool_attachments, tool_errors
 
 def get_used_tools(response):
     tools = []
@@ -305,6 +309,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
     tools_used_initial = []
     tools_used_final = []
     tool_attachments = []
+    tool_errors = []
 
     max_tool_steps = 100
     while True:
@@ -312,9 +317,10 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         if response_steps == 1:
             tools_used_initial = get_used_tools(response)
 
-        tool_outputs, step_attachments = build_function_tool_outputs(response, function_tool_fns)
+        tool_outputs, step_attachments, step_errors = build_function_tool_outputs(response, function_tool_fns)
         function_tool_calls += len(tool_outputs)
         tool_attachments = tool_attachments + step_attachments
+        tool_errors = tool_errors + step_errors
         if not tool_outputs:
             tools_used_final = get_used_tools(response)
             break
@@ -358,7 +364,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         f"Function Calls Executed: {function_tool_calls}\n"
         f"Response Steps: {response_steps}\n"
         f"Tool Loop Truncated: {tool_loop_truncated}\n"
-        f"Tool Attachments: {len(tool_attachments)}"
+        f"Tool Attachments: {len(tool_attachments)}\n"
+        f"Tool Errors: {tool_errors if tool_errors else 'none'}"
     )
         
 
