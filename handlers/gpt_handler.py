@@ -267,8 +267,7 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
     response_steps = 0
     function_tool_calls = 0
     tool_loop_truncated = False
-    tools_used_initial = []
-    tools_used_final = []
+    tools_used_all = []
     tool_attachments = []
     tool_errors = []
     tool_calls_debug = []
@@ -276,8 +275,7 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
     max_tool_steps = 100
     while True:
         response_steps += 1
-        if response_steps == 1:
-            tools_used_initial = get_used_tools(response)
+        tools_used_all += get_used_tools(response)
 
         tool_outputs, step_attachments, step_errors, step_calls_debug = build_function_tool_outputs(response, function_tool_fns)
         function_tool_calls += len(tool_outputs)
@@ -286,12 +284,10 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
         tool_calls_debug += step_calls_debug
 
         if not tool_outputs:
-            tools_used_final = get_used_tools(response)
             break
 
         if response_steps >= max_tool_steps:
             tool_loop_truncated = True
-            tools_used_final = get_used_tools(response)
             break
 
         response = client.responses.create(
@@ -305,9 +301,12 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
     assistant_text = response.output_text
     json_session.append({"role": "assistant", "content": assistant_text})
 
-    tools_used_final = get_used_tools(response)
-    tools_text_initial = tools_used_initial if tools_used_initial else []
-    tools_text_final = tools_used_final if tools_used_final else []
+    seen = set()
+    tools_used_unique = []
+    for t in tools_used_all:
+        if t not in seen:
+            tools_used_unique.append(t)
+            seen.add(t)
 
     model_details = {
         "model": response.model,
@@ -319,8 +318,7 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
         f"\n\nModel: {model_details['model']}\n"
         f"Session Key: {model_details['session_key']}\n"
         f"Token Usage: {model_details['usage']}\n"
-        f"Tools Used (initial): {tools_text_initial}\n"
-        f"Tools Used (final): {tools_text_final}\n"
+        f"Tools Used: {tools_used_unique}\n"
         f"Function Calls Executed: {function_tool_calls}\n"
         f"Response Steps: {response_steps}\n"
         f"Tool Loop Truncated: {tool_loop_truncated}\n"
