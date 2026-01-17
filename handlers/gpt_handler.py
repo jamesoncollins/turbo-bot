@@ -14,7 +14,7 @@ if key=="":
 client = OpenAI(api_key=key)
 
 DEFAULT_MODEL = "gpt-4.1"
-DEFAULT_IMAGE_MODEL = "chatgpt-image-latest"
+DEFAULT_IMAGE_MODEL = "dall-e-3"
 IMAGE_MODEL_PREFIXES = ("chatgpt-image-", "gpt-image-", "dall-e-")
 
 # Directory to store conversation histories
