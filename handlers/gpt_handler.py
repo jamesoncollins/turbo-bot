@@ -8,9 +8,8 @@ import warnings
 import base64
 import io
 
-
 key = os.environ.get("OPENAI_API_KEY", "")
-if key=="":
+if key == "":
     warnings.warn("Warning...........No OPENAI_API_KEY provided")
 client = OpenAI(api_key=key)
 
@@ -19,7 +18,6 @@ DEFAULT_IMAGE_MODEL = "dall-e-3"
 IMAGE_MODEL_PREFIXES = ("chatgpt-image-", "gpt-image-", "dall-e-")
 TOOL_DIR = os.path.join(os.path.dirname(__file__), "..", "tool_functions")
 
-# Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
@@ -28,16 +26,15 @@ MAX_HISTORY_LENGTH = 50
 class GptHandler(HashtagHandler):
 
     is_intermediate = False
-    
+
     def get_hashtag(self) -> str:
         return r"#gpt"
 
     def get_substring_mapping(self) -> dict:
-        # Provide mapping and default value for 'model'
         return {0: ("model", DEFAULT_MODEL)}
 
     def process_message(self, msg, attachments):
-        
+
         if self.hashtag_data.get("model") == "help":
             return {"message": self.get_help_text(), "attachments": []}
 
@@ -46,45 +43,41 @@ class GptHandler(HashtagHandler):
 
         if is_image_model(self.hashtag_data["model"]):
             return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
-        
-        # try to get quote info.  currently this is a try becuase i dont know
-        # how it looks for a data message
+
         json_quoted_convo = None
         try:
             quote_msg = self.context.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
-            quote_author = quote_msg["author"]
-            quote_text = quote_msg["text"]
             quote_attachments = quote_msg["attachments"]
             convo_b64 = find_first_text_file_base64(quote_attachments)
             json_quoted_convo = base64_text_file_to_json(convo_b64)
-        except:
+        except Exception:
             pass
-        
+
         if self.hashtag_data["model"] == "read":
             url = self.extract_url(msg)
             url_text = extract_text_from_url(url)
-            msg = "Please summarize this text:\n" + url_text;
+            msg = "Please summarize this text:\n" + url_text
             return submit_gpt(msg, json_quoted_convo, None, DEFAULT_MODEL)
-       
+
         return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
 
-    @staticmethod    
+    @staticmethod
     def get_help_text() -> str:
         retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
         retval += "Use #gpt.image to generate an image with the default image model.\n"
         retval += "Image model prefixes: chatgpt-image-*, gpt-image-*, dall-e-*.\n"
         retval += "Available models are:    \n"
-        
+
         models = client.models.list()
         for model in models:
-            retval+=model.id
-            retval+="    \n"
+            retval += model.id
+            retval += "    \n"
 
         function_tools, _ = load_function_tools()
         tool_lines = []
         for tool in function_tools:
-            name = tool.get("name") or tool.get("function", {}).get("name")
-            desc = tool.get("description") or tool.get("function", {}).get("description")
+            name = tool.get("name")
+            desc = tool.get("description")
             if name:
                 if desc:
                     tool_lines.append(f"{name} - {desc}")
@@ -102,29 +95,58 @@ class GptHandler(HashtagHandler):
     @staticmethod
     def get_name() -> str:
         return "GptHandler"
-    
+
+
 def get_history_file_path(session_key):
-    """Returns the file path for a given session key."""
-    safe_key = "".join(c for c in session_key if c.isalnum() or c in (' ', '.', '_')).rstrip()
+    safe_key = "".join(c for c in session_key if c.isalnum() or c in (" ", ".", "_")).rstrip()
     return os.path.join(HISTORY_DIR, f"{safe_key}.json")
 
+
 def load_conversation_history(session_key):
-    """Loads conversation history from a file."""
     history_file = get_history_file_path(session_key)
     if os.path.exists(history_file):
         with open(history_file, "r") as file:
             history = json.load(file)
-        # Ensure the history format is valid
         return history
     return []
 
+
 def save_conversation_history(session_key, history):
-    """Saves conversation history to a file with a limit on history length."""
     history_file = get_history_file_path(session_key)
-    # Keep only the most recent messages within the limit
     trimmed_history = history[-MAX_HISTORY_LENGTH:]
     with open(history_file, "w") as file:
         json.dump(trimmed_history, file, indent=4)
+
+
+def normalize_tool_spec_for_responses(tool_spec: dict) -> dict:
+    """
+    Ensure every tool spec passed to client.responses.create() is in Responses API format:
+      {"type":"function","name":..., "description":..., "parameters":...}
+    If a tool is in Chat Completions format:
+      {"type":"function","function":{...}}
+    convert it.
+    """
+    if not isinstance(tool_spec, dict):
+        return tool_spec
+
+    if tool_spec.get("type") != "function":
+        return tool_spec
+
+    if "function" in tool_spec and isinstance(tool_spec["function"], dict):
+        fn = tool_spec["function"]
+        out = {
+            "type": "function",
+            "name": fn.get("name"),
+            "description": fn.get("description", ""),
+            "parameters": fn.get("parameters", {"type": "object", "properties": {}}),
+        }
+        if "strict" in fn:
+            out["strict"] = fn["strict"]
+        return out
+
+    # Already Responses-style
+    return tool_spec
+
 
 def load_function_tools():
     tool_specs = []
@@ -154,7 +176,9 @@ def load_function_tools():
             warnings.warn(f"Missing TOOL_SPEC or TOOL_FN in {module_path}")
             continue
 
-        tool_name = tool_spec.get("name") or tool_spec.get("function", {}).get("name")
+        tool_spec = normalize_tool_spec_for_responses(tool_spec)
+
+        tool_name = tool_spec.get("name")
         if not tool_name:
             warnings.warn(f"Missing tool name in {module_path}")
             continue
@@ -164,11 +188,31 @@ def load_function_tools():
 
     return tool_specs, tool_fns
 
+
+def _missing_required_for_plot_from_data(args: dict) -> list:
+    """
+    Cheap, tool-specific guard that produces better corrective feedback than a stack trace.
+    """
+    missing = []
+    mode = args.get("mode")
+    if mode is None:
+        missing.append("mode")
+        return missing
+    if mode == "single":
+        if "y" not in args or args.get("y") in (None, []) :
+            missing.append("y")
+    elif mode == "multi":
+        if "series" not in args or args.get("series") in (None, []):
+            missing.append("series")
+    return missing
+
+
 def build_function_tool_outputs(response, tool_fns):
     tool_outputs = []
     tool_attachments = []
     tool_errors = []
     tool_calls_debug = []
+
     output = getattr(response, "output", None) or []
     for item in output:
         item_type = getattr(item, "type", None)
@@ -188,24 +232,53 @@ def build_function_tool_outputs(response, tool_fns):
         args_raw = getattr(item, "arguments", None)
         if args_raw is None and isinstance(item, dict):
             args_raw = item.get("arguments")
+
         tool_calls_debug.append({"tool": tool_name, "arguments": args_raw})
 
+        # Parse args
         try:
             args = json.loads(args_raw or "{}")
         except Exception as e:
             result = f"ERROR: Invalid JSON arguments for {tool_name}: {e}"
             tool_errors.append(result)
-        else:
-            tool_fn = tool_fns.get(tool_name)
-            if tool_fn is None:
-                result = f"ERROR: Unknown tool {tool_name}"
+            tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
+            continue
+
+        # Guard: empty args
+        if not isinstance(args, dict) or len(args) == 0:
+            result = (
+                f"ERROR: Empty arguments for tool {tool_name}. "
+                f"Do not call this tool unless you can provide all required fields."
+            )
+            tool_errors.append(result)
+            tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
+            continue
+
+        tool_fn = tool_fns.get(tool_name)
+        if tool_fn is None:
+            result = f"ERROR: Unknown tool {tool_name}"
+            tool_errors.append(result)
+            tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
+            continue
+
+        # Optional: tool-specific required checking (better feedback than stack traces)
+        if tool_name == "plot_from_data":
+            missing = _missing_required_for_plot_from_data(args)
+            if missing:
+                result = (
+                    f"ERROR: Missing required fields for tool {tool_name}: {', '.join(missing)}. "
+                    f"Provide valid JSON arguments that satisfy the tool schema."
+                )
                 tool_errors.append(result)
-            else:
-                try:
-                    result = tool_fn(**args)
-                except Exception as e:
-                    result = f"ERROR: {type(e).__name__}: {e}"
-                    tool_errors.append(result)
+                tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
+                continue
+
+        # Execute
+        try:
+            result = tool_fn(**args)
+        except Exception as e:
+            result = f"ERROR: {type(e).__name__}: {e}"
+            tool_errors.append(result)
 
         output_text = result
         if isinstance(result, dict):
@@ -226,6 +299,7 @@ def build_function_tool_outputs(response, tool_fns):
 
     return tool_outputs, tool_attachments, tool_errors, tool_calls_debug
 
+
 def get_used_tools(response):
     tools = []
     output = getattr(response, "output", None) or []
@@ -233,21 +307,18 @@ def get_used_tools(response):
         item_type = getattr(item, "type", None)
         if item_type is None and isinstance(item, dict):
             item_type = item.get("type")
+
         tool_name = None
-        if item_type == "tool_call":
+        if item_type == "function_call":
             tool_name = getattr(item, "name", None)
             if tool_name is None and isinstance(item, dict):
                 tool_name = item.get("name")
-        elif item_type == "function_call":
-            tool_name = getattr(item, "name", None)
-            if tool_name is None and isinstance(item, dict):
-                tool_name = item.get("name")
-            if tool_name is None:
-                tool_name = "function"
         elif item_type and item_type.endswith("_call"):
             tool_name = item_type[:-5]
+
         if tool_name:
             tools.append(tool_name)
+
     seen = set()
     unique_tools = []
     for tool in tools:
@@ -256,47 +327,32 @@ def get_used_tools(response):
             seen.add(tool)
     return unique_tools
 
-def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_MODEL):
-    """
-    Submits user input to the GPT model, maintaining conversation history.
-    
-    Parameters:
-        user_input (str): The input message from the user.
-        session_key (str): The unique session key to identify the conversation. 
-                           If None or empty, no history is loaded or saved.
-        model (str): The model to use (default: "gpt-4").
-        
-    Returns:
-        str: The assistant's response along with model details.
-    """
+
+def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MODEL):
     if not json_session:
         json_session = []
-    
-    
-    # control the gpt system prompts.
-    # this is the spot you might use for having different personailities    
+
     if len(json_session) == 0:
-        json_session.append({"role": "system", "content": 
-             "You are a helpful chatbot for signal groups. This chat is single-shot only: "
-             "you must answer in one reply and must not ask follow-up questions. "
-             "If a change is needed, the user will send a new message. "
-             "When calling tools, always include all required arguments per the tool schema; "
-             "never call a tool with empty arguments."
-                             }
+        json_session.append(
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful chatbot for signal groups. This chat is single-shot only: "
+                    "answer in one reply and do not ask follow-up questions. "
+                    "If tool inputs are missing, do NOT call tools; respond with plain text instead. "
+                    "When calling tools, always include all required arguments per the tool schema; "
+                    "never call a tool with empty arguments."
+                ),
+            }
         )
-        
-    # Append user's message to the conversation history
+
     json_session.append({"role": "user", "content": user_input})
 
-    # Format the conversation history for the new API
-    formatted_messages = [
-        {"role": msg["role"], "content": msg["content"]} for msg in json_session
-    ]
+    formatted_messages = [{"role": msg["role"], "content": msg["content"]} for msg in json_session]
 
     function_tools, function_tool_fns = load_function_tools()
     tools = [{"type": "web_search"}] + function_tools
 
-    # Call the OpenAI API with the conversation history
     try:
         response = client.responses.create(
             model=model,
@@ -305,7 +361,6 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
             include=["web_search_call.action.sources"],
         )
     except Exception as e:
-        # Code to handle the exception
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
 
@@ -326,9 +381,10 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
 
         tool_outputs, step_attachments, step_errors, step_calls_debug = build_function_tool_outputs(response, function_tool_fns)
         function_tool_calls += len(tool_outputs)
-        tool_attachments = tool_attachments + step_attachments
-        tool_errors = tool_errors + step_errors
-        tool_calls_debug = tool_calls_debug + step_calls_debug
+        tool_attachments += step_attachments
+        tool_errors += step_errors
+        tool_calls_debug += step_calls_debug
+
         if not tool_outputs:
             tools_used_final = get_used_tools(response)
             break
@@ -346,23 +402,21 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
             include=["web_search_call.action.sources"],
         )
 
-    # Extract the assistant's response
     assistant_text = response.output_text
     json_session.append({"role": "assistant", "content": assistant_text})
 
     print(json_session)
 
-    # Prepare model details
     tools_used_final = get_used_tools(response)
     tools_text_initial = ", ".join(tools_used_initial) if tools_used_initial else "none"
     tools_text_final = ", ".join(tools_used_final) if tools_used_final else "none"
+
     model_details = {
         "model": response.model,
         "usage": response.usage.total_tokens,
         "session_key": session_key,
     }
 
-    # Format the details for inclusion in the response string
     details_string = (
         f"\n\nModel: {model_details['model']}\n"
         f"Session Key: {model_details['session_key']}\n"
@@ -376,17 +430,16 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         f"Tool Errors: {tool_errors if tool_errors else 'none'}\n"
         f"Tool Calls: {tool_calls_debug if tool_calls_debug else 'none'}"
     )
-        
 
-    # Return the assistant's reply with model details
     attachments = tool_attachments + [json_to_base64_text_file(json_session)]
     return {"message": assistant_text + details_string, "attachments": attachments}
+
 
 def is_image_model(model_name: str) -> bool:
     return any(model_name.startswith(prefix) for prefix in IMAGE_MODEL_PREFIXES)
 
-def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL):
 
+def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL):
     if session_key:
         return []
 
@@ -395,7 +448,6 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
             model=model,
             prompt=user_input,
             n=1,
-            #size="256x256",
             response_format="b64_json",
         )
     except Exception as e:
@@ -404,7 +456,6 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
                 model=model,
                 prompt=user_input,
                 n=1,
-                #size="256x256",
             )
         else:
             raise
@@ -427,91 +478,48 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
     if revised_prompt is None and isinstance(image_data, dict):
         revised_prompt = image_data.get("revised_prompt")
 
-    return { "message": revised_prompt, "attachments": [image_b64] if image_b64 else [] }
-
+    return {"message": revised_prompt, "attachments": [image_b64] if image_b64 else []}
 
 
 def json_to_base64_text_file(json_data):
-
     try:
         input_data = json.dumps(json_data)
-        
-        # Convert the input string to bytes
-        input_bytes = input_data.encode('utf-8')
-
-        # Encode the bytes to Base64
-        base64_encoded = base64.b64encode(input_bytes).decode('utf-8')
+        input_bytes = input_data.encode("utf-8")
+        base64_encoded = base64.b64encode(input_bytes).decode("utf-8")
         return base64_encoded
-        
-        # Construct the MIME data
-        mime_type = "text/plain"        
-        mime_data = f"data:{mime_type};name=log.txt;base64,{base64_encoded}"
-        
-        # Return MIME data as bytes
-        return mime_data.encode('utf-8')
     except Exception as e:
         raise ValueError(f"An error occurred: {e}")
 
+
 def base64_text_file_to_json(b64_file_content):
-    """
-    Decodes a Base64-encoded text file and converts it back to JSON data.
-    
-    :param b64_file_content: The Base64-encoded content of the text file (bytes object).
-    :return: The decoded JSON data as a Python dictionary or list.
-    """
-    # Decode the Base64 content to get the original JSON string
     decoded_bytes = base64.b64decode(b64_file_content)
-    json_string = decoded_bytes.decode('utf-8')
-    
-    # Parse the JSON string back into a Python object
+    json_string = decoded_bytes.decode("utf-8")
     json_data = json.loads(json_string)
-    
     print(f"loaded json data {json_data}")
-    
     return json_data
 
+
 def find_first_text_file_base64(base64_files):
-    """
-    Identifies the first Base64-encoded file in the list that is a text file and returns it.
-    
-    :param base64_files: A list of Base64-encoded file contents (as bytes or strings).
-    :return: The Base64 string representing the first text file found, or None if no text file is found.
-    """
     for b64_file in base64_files:
         try:
-            # Decode the Base64 content
             decoded_bytes = base64.b64decode(b64_file)
-
-            # Attempt to decode the bytes as UTF-8 (text)
-            decoded_text = decoded_bytes.decode('utf-8')
-            
-            #if contentType == "application/json":
-            #    return decoded_bytes.decode('utf-8')
-
-            # If successful, return the original Base64 string
+            _ = decoded_bytes.decode("utf-8")
             return b64_file
         except (base64.binascii.Error, UnicodeDecodeError):
-            # If decoding fails, it's not a valid Base64 or not a text file
             continue
-
-    # Return None if no text file is found
     return None
-    
+
+
 import requests
 from bs4 import BeautifulSoup
 
+
 def extract_text_from_url(url):
     try:
-        # Send HTTP request to the URL
         response = requests.get(url)
-        response.raise_for_status()  # Raise exception for HTTP errors
-
-        # Parse the HTML content
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Extract and return all text
-        return soup.get_text(separator='\n', strip=True)
-
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        return soup.get_text(separator="\n", strip=True)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
         return ""
