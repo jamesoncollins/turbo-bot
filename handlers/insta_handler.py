@@ -1,3 +1,7 @@
+########### SEE BELOW
+# This handler is disabled, look at can_handle
+
+
 from utils.misc_utils import *
 import instaloader
 import os
@@ -26,6 +30,31 @@ class InstaHandler(BaseHandler):
     @staticmethod
     def get_name() -> str:
         return "Instagram Handler"
+
+
+
+
+
+
+
+# ERROR!!!
+# So im right here, i want to change from using instaloader directly to using hte new class that can support sessions.
+#
+# But, that part doesnt work, however ther is a part that does work: it can download top posts form a user.
+#
+# Just need to tie that in right here and figure loop over the files to send them all
+#
+# we have a test case for the new code that should getting a bunch of posts and putting them in a temp directory
+
+
+
+
+
+
+
+
+
+
     
 def download_instagram_video_as_b64(url: str, username: str = None, password: str = None):
     # Create an instance of the instaloader class
