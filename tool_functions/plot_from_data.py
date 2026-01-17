@@ -1,7 +1,7 @@
 # tool_functions/plot_from_data.py
 import base64
 import io
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 import matplotlib
 matplotlib.use("Agg")
@@ -30,6 +30,24 @@ def _plot_series(ax, series: dict, default_kind: str, categorical_labels: Option
         ax.plot(x_vals, y_vals, label=name)
 
 
+def _coerce_kind(kind: Optional[str], default_kind: str) -> str:
+    if not kind:
+        return default_kind
+    k = str(kind).strip().lower()
+    if k not in ("line", "scatter", "bar"):
+        raise ValueError("kind must be one of: line, scatter, bar")
+    return k
+
+
+def _coerce_mode(mode: Optional[str], series: Optional[List[dict]]) -> str:
+    if mode is None:
+        return "multi" if series is not None else "single"
+    m = str(mode).strip().lower()
+    if m not in ("single", "multi"):
+        raise ValueError("mode must be 'single' or 'multi'")
+    return m
+
+
 def plot_from_data(
     mode: Optional[str] = None,
     y: Optional[List[float]] = None,
@@ -40,43 +58,57 @@ def plot_from_data(
     xlabel: str = "X",
     ylabel: str = "Y",
     kind: str = "line",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Generate a plot image from raw data and return it as a base64 PNG.
+
+    Enforcement of required fields is done here (because the Responses API tool schema
+    subset rejects oneOf/anyOf/allOf/enum conditionals at the top level).
     """
     categorical_labels = None
 
-    if mode is None:
-        if series is not None:
-            mode = "multi"
-        else:
-            mode = "single"
-
-    if mode not in ("single", "multi"):
-        raise ValueError("mode must be 'single' or 'multi'")
+    mode = _coerce_mode(mode, series)
+    kind = _coerce_kind(kind, "line")
 
     if mode == "single":
-        if y is None:
-            raise ValueError("Provide 'y' for mode='single'")
+        if y is None or len(y) == 0:
+            raise ValueError("Provide non-empty 'y' for mode='single'")
+        if x is not None and len(x) != len(y):
+            raise ValueError("'x' length must match 'y' length")
+        if labels is not None and len(labels) != len(y):
+            raise ValueError("'labels' length must match 'y' length")
     else:
         if not series:
-            raise ValueError("Provide 'series' for mode='multi'")
+            raise ValueError("Provide non-empty 'series' for mode='multi'")
 
     if series is None:
         if labels is not None:
-            if y is None:
-                raise ValueError("'labels' provided but 'y' is missing")
-            if len(labels) != len(y):
-                raise ValueError("'labels' length must match 'y' length")
             categorical_labels = labels
             x = list(range(1, len(labels) + 1))
         series = [{"name": None, "x": x, "y": y, "kind": kind}]
     else:
+        # Validate series entries and detect categorical labels if present
+        cleaned = []
         for entry in series:
+            if not isinstance(entry, dict):
+                raise ValueError("Each entry in 'series' must be an object")
+            y_vals = entry.get("y")
+            if y_vals is None or len(y_vals) == 0:
+                raise ValueError("Each series entry must include non-empty 'y'")
+            entry_kind = _coerce_kind(entry.get("kind"), kind)
             x_vals = entry.get("x")
-            if x_vals and isinstance(x_vals[0], str):
-                categorical_labels = x_vals
-                break
+
+            # If the caller provides labels for categorical x, prefer using 'labels' at the top-level.
+            # (We keep the schema numeric-only for x to satisfy tool schema restrictions.)
+            cleaned.append(
+                {
+                    "name": entry.get("name"),
+                    "x": x_vals,
+                    "y": y_vals,
+                    "kind": entry_kind,
+                }
+            )
+        series = cleaned
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for entry in series:
@@ -105,75 +137,70 @@ def plot_from_data(
     return {"text": "Plot generated.", "attachments": [image_b64]}
 
 
-# Responses API tool spec (new format only)
-TOOL_SPEC: Dict = {
+# Responses API tool spec: MUST be a top-level object schema and must NOT include
+# oneOf/anyOf/allOf/enum/not at the top level (or conditionals).
+TOOL_SPEC: Dict[str, Any] = {
     "type": "function",
     "name": "plot_from_data",
     "description": (
         "Generate a plot image from numeric data and return it as an attachment. "
-        "Only call this tool when you have the data. "
-        "Use mode='single' with y (and optional x/labels), or mode='multi' with series."
+        "Call only when you have the data. "
+        "Arguments: mode ('single' or 'multi'), y/x/labels for single, or series for multi. "
+        "kind should be one of: line, scatter, bar."
     ),
     "parameters": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["mode"],
         "properties": {
             "mode": {
                 "type": "string",
-                "enum": ["single", "multi"],
-                "description": "Use 'single' for one series (y required). Use 'multi' for multiple series (series required).",
+                "description": "Either 'single' or 'multi'. If omitted, defaults based on whether 'series' is provided.",
             },
             "y": {
                 "type": "array",
                 "items": {"type": "number"},
-                "description": "Y values for a single series (required when mode='single'). Example: [0, 1, 4, 9]",
-                "minItems": 1,
+                "description": "Y values for a single series (required when mode='single').",
             },
             "x": {
                 "type": "array",
-                "items": {"anyOf": [{"type": "number"}, {"type": "string"}]},
-                "description": "Optional X values for a single series (same length as y).",
-                "minItems": 1,
+                "items": {"type": "number"},
+                "description": "Optional numeric X values for a single series (same length as y).",
             },
             "labels": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": "Optional categorical labels for a single series (same length as y).",
-                "minItems": 1,
             },
             "series": {
                 "type": "array",
-                "minItems": 1,
-                "description": "Multiple series to plot (required when mode='multi').",
+                "description": "Multiple series objects (required when mode='multi').",
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["y"],
                     "properties": {
-                        "name": {"type": "string"},
-                        "x": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "string"}]}},
-                        "y": {"type": "array", "items": {"type": "number"}, "minItems": 1},
-                        "kind": {"type": "string", "enum": ["line", "scatter", "bar"]},
+                        "name": {"type": "string", "description": "Legend label for the series."},
+                        "x": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Optional numeric X values for this series (same length as y).",
+                        },
+                        "y": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Y values for this series (required).",
+                        },
+                        "kind": {
+                            "type": "string",
+                            "description": "One of: line, scatter, bar. If omitted, falls back to top-level kind.",
+                        },
                     },
                 },
             },
-            "title": {"type": "string"},
-            "xlabel": {"type": "string"},
-            "ylabel": {"type": "string"},
-            "kind": {"type": "string", "enum": ["line", "scatter", "bar"]},
+            "title": {"type": "string", "description": "Plot title."},
+            "xlabel": {"type": "string", "description": "X-axis label."},
+            "ylabel": {"type": "string", "description": "Y-axis label."},
+            "kind": {"type": "string", "description": "One of: line, scatter, bar (used for single series and as default for multi)."},
         },
-        # Conditional requirements without oneOf (oneOf is rejected by the API validator)
-        "allOf": [
-            {
-                "if": {"properties": {"mode": {"const": "single"}}},
-                "then": {"required": ["y"]},
-            },
-            {
-                "if": {"properties": {"mode": {"const": "multi"}}},
-                "then": {"required": ["series"]},
-            },
-        ],
     },
 }
 

@@ -129,17 +129,30 @@ def load_function_tools():
     return tool_specs, tool_fns
 
 
-def _missing_required_for_plot_from_data(args: dict) -> list:
+def _validate_plot_from_data_args(args: dict) -> list:
     missing = []
+
     mode = args.get("mode")
+    series = args.get("series")
+
+    # Defaulting mirrors the tool function logic
     if mode is None:
-        return ["mode"]
+        mode = "multi" if series is not None else "single"
+
+    if isinstance(mode, str):
+        mode = mode.strip().lower()
+
+    if mode not in ("single", "multi"):
+        return ["mode (must be 'single' or 'multi')"]
+
     if mode == "single":
-        if "y" not in args or args.get("y") in (None, []):
+        y = args.get("y")
+        if y is None or (isinstance(y, list) and len(y) == 0):
             missing.append("y")
-    elif mode == "multi":
-        if "series" not in args or args.get("series") in (None, []):
+    else:
+        if series is None or (isinstance(series, list) and len(series) == 0):
             missing.append("series")
+
     return missing
 
 
@@ -196,11 +209,11 @@ def build_function_tool_outputs(response, tool_fns):
             continue
 
         if tool_name == "plot_from_data":
-            missing = _missing_required_for_plot_from_data(args)
+            missing = _validate_plot_from_data_args(args)
             if missing:
                 result = (
-                    f"ERROR: Missing required fields for tool {tool_name}: {', '.join(missing)}. "
-                    f"Provide valid JSON arguments that satisfy the tool schema."
+                    f"ERROR: Missing/invalid required fields for tool {tool_name}: {', '.join(missing)}. "
+                    f"Provide valid JSON arguments (mode + y for single, or mode + series for multi)."
                 )
                 tool_errors.append(result)
                 tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
