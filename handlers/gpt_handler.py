@@ -6,7 +6,6 @@ from openai import OpenAI
 import warnings
 import base64
 import io
-from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 
 key = os.environ.get("OPENAI_API_KEY", "")
@@ -30,7 +29,7 @@ class GptHandler(HashtagHandler):
 
     def get_substring_mapping(self) -> dict:
         # Provide mapping and default value for 'model'
-        return {0: ("model", "gpt-4o-mini")}
+        return {0: ("model", "gpt-4.1")}
 
     def process_message(self, msg, attachments):
         
@@ -63,7 +62,7 @@ class GptHandler(HashtagHandler):
             url = self.extract_url(msg)
             url_text = extract_text_from_url(url)
             msg = "Please summarize this text:\n" + url_text;
-            return submit_gpt(msg, json_quoted_convo, None, "gpt-4o-mini")
+            return submit_gpt(msg, json_quoted_convo, None, "gpt-4.1")
        
         return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
 
@@ -109,7 +108,7 @@ def save_conversation_history(session_key, history):
     with open(history_file, "w") as file:
         json.dump(trimmed_history, file, indent=4)
 
-def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-mini"):
+def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1"):
     """
     Submits user input to the GPT model, maintaining conversation history.
     
@@ -144,15 +143,20 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
 
     # Call the OpenAI API with the conversation history
     try:
-        response = client.chat.completions.create(model=model, messages=formatted_messages)
+        response = client.responses.create(
+            model=model,
+            tools=[{"type": "web_search"}],
+            input=formatted_messages,
+            include=["web_search_call.action.sources"],
+        )
     except Exception as e:
         # Code to handle the exception
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
     
     # Extract the assistant's response
-    assistant_message = response.choices[0].message
-    json_session.append( {"role": "assistant", "content": assistant_message.content} )
+    assistant_text = response.output_text
+    json_session.append({"role": "assistant", "content": assistant_text})
 
     print(json_session)
 
@@ -172,7 +176,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4o-
         
 
     # Return the assistant's reply with model details
-    return {"message": assistant_message.content + details_string, "attachments": [json_to_base64_text_file(json_session)]}
+    return {"message": assistant_text + details_string, "attachments": [json_to_base64_text_file(json_session)]}
 
 def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
 
