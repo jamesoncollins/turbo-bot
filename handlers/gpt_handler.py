@@ -166,6 +166,7 @@ def load_function_tools():
 
 def build_function_tool_outputs(response, tool_fns):
     tool_outputs = []
+    tool_attachments = []
     output = getattr(response, "output", None) or []
     for item in output:
         item_type = getattr(item, "type", None)
@@ -200,15 +201,24 @@ def build_function_tool_outputs(response, tool_fns):
                 except Exception as e:
                     result = f"ERROR: {type(e).__name__}: {e}"
 
+        output_text = result
+        if isinstance(result, dict):
+            attachments = result.get("attachments")
+            if isinstance(attachments, list):
+                tool_attachments.extend(attachments)
+            output_text = result.get("text", "OK")
+        elif not isinstance(result, str):
+            output_text = json.dumps(result, default=str)
+
         tool_outputs.append(
             {
                 "type": "function_call_output",
                 "call_id": call_id,
-                "output": result,
+                "output": output_text,
             }
         )
 
-    return tool_outputs
+    return tool_outputs, tool_attachments
 
 def get_used_tools(response):
     tools = []
@@ -294,6 +304,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
     tool_loop_truncated = False
     tools_used_initial = []
     tools_used_final = []
+    tool_attachments = []
 
     max_tool_steps = 100
     while True:
@@ -301,8 +312,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         if response_steps == 1:
             tools_used_initial = get_used_tools(response)
 
-        tool_outputs = build_function_tool_outputs(response, function_tool_fns)
+        tool_outputs, step_attachments = build_function_tool_outputs(response, function_tool_fns)
         function_tool_calls += len(tool_outputs)
+        tool_attachments = tool_attachments + step_attachments
         if not tool_outputs:
             tools_used_final = get_used_tools(response)
             break
@@ -350,7 +362,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         
 
     # Return the assistant's reply with model details
-    return {"message": assistant_text + details_string, "attachments": [json_to_base64_text_file(json_session)]}
+    attachments = [json_to_base64_text_file(json_session)] + tool_attachments
+    return {"message": assistant_text + details_string, "attachments": attachments}
 
 def is_image_model(model_name: str) -> bool:
     return any(model_name.startswith(prefix) for prefix in IMAGE_MODEL_PREFIXES)
@@ -485,5 +498,3 @@ def extract_text_from_url(url):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
         return ""
-
-
