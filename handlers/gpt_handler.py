@@ -20,6 +20,8 @@ HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
 
+image_generation_models = ["dall-e-2", "dall-e-3"]
+
 
 class GptHandler(HashtagHandler):
 
@@ -36,6 +38,12 @@ class GptHandler(HashtagHandler):
         
         if self.hashtag_data.get("model") == "help":
             return {"message": self.get_help_text(), "attachments": []}
+
+        if self.hashtag_data["model"] == "image":
+            self.hashtag_data["model"] = "dall-e-3"
+
+        if self.hashtag_data["model"] in image_generation_models:
+            return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
         
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
@@ -67,6 +75,9 @@ class GptHandler(HashtagHandler):
         for model in models:
             retval+=model.id
             retval+="    \n"
+
+        retval += "Models that support image generation are:\n"
+        retval += '    \n'.join(str(x) for x in image_generation_models)
             
         return retval
 
@@ -164,7 +175,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
     try:
         response = client.responses.create(
             model=model,
-            tools=[{"type": "web_search"}, {"type": "image_generation"}],
+            tools=[
+                {"type": "web_search"}
+                ],
             input=formatted_messages,
             include=["web_search_call.action.sources"],
         )
@@ -173,28 +186,6 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
     
-    # Extract any image generation results (if the model chose that tool)
-    image_outputs = []
-    output = getattr(response, "output", None) or []
-    for item in output:
-        item_type = getattr(item, "type", None)
-        if item_type is None and isinstance(item, dict):
-            item_type = item.get("type")
-        if item_type == "image_generation_call":
-            image_outputs.append(item)
-
-    if image_outputs:
-        first_image = image_outputs[0]
-        revised_prompt = getattr(first_image, "revised_prompt", None)
-        if revised_prompt is None and isinstance(first_image, dict):
-            revised_prompt = first_image.get("revised_prompt")
-        image_b64 = getattr(first_image, "result", None)
-        if image_b64 is None and isinstance(first_image, dict):
-            image_b64 = first_image.get("result")
-        message_text = revised_prompt or "Image generated."
-        json_session.append({"role": "assistant", "content": message_text})
-        return {"message": message_text, "attachments": [image_b64] if image_b64 else []}
-
     # Extract the assistant's response
     assistant_text = response.output_text
     json_session.append({"role": "assistant", "content": assistant_text})
@@ -221,6 +212,21 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
 
     # Return the assistant's reply with model details
     return {"message": assistant_text + details_string, "attachments": [json_to_base64_text_file(json_session)]}
+
+def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
+
+    if session_key:
+        return []
+
+    response = client.images.generate(
+        model=model,
+        prompt=user_input,
+        n=1,
+        #size="256x256",
+        response_format="b64_json",
+    )
+
+    return { "message": response.data[0].revised_prompt, "attachments": [response.data[0].b64_json] }
 
 
 
