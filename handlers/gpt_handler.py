@@ -14,13 +14,13 @@ if key=="":
 client = OpenAI(api_key=key)
 
 DEFAULT_MODEL = "gpt-4.1"
+DEFAULT_IMAGE_MODEL = "chatgpt-image-latest"
+IMAGE_MODEL_PREFIXES = ("chatgpt-image-", "gpt-image-", "dall-e-")
 
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
-
-image_generation_models = ["dall-e-2", "dall-e-3"]
 
 
 class GptHandler(HashtagHandler):
@@ -40,9 +40,9 @@ class GptHandler(HashtagHandler):
             return {"message": self.get_help_text(), "attachments": []}
 
         if self.hashtag_data["model"] == "image":
-            self.hashtag_data["model"] = "dall-e-3"
+            self.hashtag_data["model"] = DEFAULT_IMAGE_MODEL
 
-        if self.hashtag_data["model"] in image_generation_models:
+        if is_image_model(self.hashtag_data["model"]):
             return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
         
         # try to get quote info.  currently this is a try becuase i dont know
@@ -69,6 +69,8 @@ class GptHandler(HashtagHandler):
     @staticmethod    
     def get_help_text() -> str:
         retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
+        retval += "Use #gpt.image to generate an image with the default image model.\n"
+        retval += "Image model prefixes: chatgpt-image-*, gpt-image-*, dall-e-*.\n"
         retval += "Available models are:    \n"
         
         models = client.models.list()
@@ -76,9 +78,6 @@ class GptHandler(HashtagHandler):
             retval+=model.id
             retval+="    \n"
 
-        retval += "Models that support image generation are:\n"
-        retval += '    \n'.join(str(x) for x in image_generation_models)
-            
         return retval
 
     @staticmethod
@@ -213,7 +212,10 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
     # Return the assistant's reply with model details
     return {"message": assistant_text + details_string, "attachments": [json_to_base64_text_file(json_session)]}
 
-def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
+def is_image_model(model_name: str) -> bool:
+    return any(model_name.startswith(prefix) for prefix in IMAGE_MODEL_PREFIXES)
+
+def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL):
 
     if session_key:
         return []
