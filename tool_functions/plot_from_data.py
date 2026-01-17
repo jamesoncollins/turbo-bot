@@ -29,6 +29,7 @@ def _plot_series(ax, series: dict, default_kind: str, categorical_labels: Option
 
 
 def plot_from_data(
+    mode: str,
     y: Optional[List[float]] = None,
     x: Optional[List[float]] = None,
     labels: Optional[List[str]] = None,
@@ -51,9 +52,17 @@ def plot_from_data(
         kind: One of line, scatter, bar (used for single series).
     """
     categorical_labels = None
-    if series is None:
+    if mode not in ("single", "multi"):
+        raise ValueError("mode must be 'single' or 'multi'")
+
+    if mode == "single":
         if y is None:
-            raise ValueError("Provide 'y' or 'series'")
+            raise ValueError("Provide 'y' for mode='single'")
+    else:
+        if not series:
+            raise ValueError("Provide 'series' for mode='multi'")
+
+    if series is None:
         if labels is not None:
             if len(labels) != len(y):
                 raise ValueError("'labels' length must match 'y' length")
@@ -96,22 +105,31 @@ TOOL_SPEC: Dict = {
     "name": "plot_from_data",
     "function": {
         "name": "plot_from_data",
-        "description": "Generate a plot image from raw numeric data and return it as an attachment. Provide 'y' or 'series'; do not call without data.",
+        "description": (
+            "Generate a plot image from numeric data and return it as an attachment. "
+            "Never call this tool without providing data. "
+            "Use mode='single' with y (and optional x), or mode='multi' with series."
+        ),
         "parameters": {
             "type": "object",
-            "minProperties": 1,
             "additionalProperties": False,
+            "required": ["mode"],
             "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["single", "multi"],
+                    "description": "Use 'single' for one series (y required). Use 'multi' for multiple series (series required).",
+                },
                 "y": {
                     "type": "array",
                     "items": {"type": "number"},
-                    "description": "Y values for a single series.",
+                    "description": "Y values for a single series (required when mode='single'). Example: [0, 1, 4, 9]",
                     "minItems": 1,
                 },
                 "x": {
                     "type": "array",
                     "items": {"anyOf": [{"type": "number"}, {"type": "string"}]},
-                    "description": "Optional X values for a single series.",
+                    "description": "Optional X values for a single series (same length as y).",
                     "minItems": 1,
                 },
                 "labels": {
@@ -122,27 +140,34 @@ TOOL_SPEC: Dict = {
                 },
                 "series": {
                     "type": "array",
+                    "minItems": 1,
+                    "description": "Multiple series to plot (required when mode='multi').",
                     "items": {
                         "type": "object",
                         "additionalProperties": False,
+                        "required": ["y"],
                         "properties": {
                             "name": {"type": "string"},
                             "x": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "string"}]}},
-                            "y": {"type": "array", "items": {"type": "number"}},
-                            "kind": {"type": "string"},
+                            "y": {"type": "array", "items": {"type": "number"}, "minItems": 1},
+                            "kind": {"type": "string", "enum": ["line", "scatter", "bar"]},
                         },
                     },
-                    "description": "Multiple series to plot.",
-                    "minItems": 1,
                 },
                 "title": {"type": "string"},
                 "xlabel": {"type": "string"},
                 "ylabel": {"type": "string"},
-                "kind": {"type": "string", "description": "line, scatter, or bar"},
+                "kind": {"type": "string", "enum": ["line", "scatter", "bar"]},
             },
-            "anyOf": [
-                {"required": ["y"]},
-                {"required": ["series"]}
+            "allOf": [
+                {
+                    "if": {"properties": {"mode": {"const": "single"}}},
+                    "then": {"required": ["y"]},
+                },
+                {
+                    "if": {"properties": {"mode": {"const": "multi"}}},
+                    "then": {"required": ["series"]},
+                },
             ],
         },
     },
