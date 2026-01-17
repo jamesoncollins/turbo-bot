@@ -3,6 +3,7 @@ from handlers.hashtag_handler import HashtagHandler
 import os
 import json
 from openai import OpenAI
+import importlib.util
 import warnings
 import base64
 import io
@@ -16,6 +17,7 @@ client = OpenAI(api_key=key)
 DEFAULT_MODEL = "gpt-4.1"
 DEFAULT_IMAGE_MODEL = "dall-e-3"
 IMAGE_MODEL_PREFIXES = ("chatgpt-image-", "gpt-image-", "dall-e-")
+TOOL_DIR = os.path.join(os.path.dirname(__file__), "..", "tool_functions")
 
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
@@ -107,6 +109,90 @@ def save_conversation_history(session_key, history):
     with open(history_file, "w") as file:
         json.dump(trimmed_history, file, indent=4)
 
+def load_function_tools():
+    tool_specs = []
+    tool_fns = {}
+    if not os.path.isdir(TOOL_DIR):
+        return tool_specs, tool_fns
+
+    for filename in os.listdir(TOOL_DIR):
+        if not filename.endswith(".py") or filename.startswith("_"):
+            continue
+        module_path = os.path.join(TOOL_DIR, filename)
+        module_name = f"tool_functions.{os.path.splitext(filename)[0]}"
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if spec is None or spec.loader is None:
+            warnings.warn(f"Skipping tool module without spec: {module_path}")
+            continue
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            warnings.warn(f"Failed to load tool module {module_path}: {e}")
+            continue
+
+        tool_spec = getattr(module, "TOOL_SPEC", None)
+        tool_fn = getattr(module, "TOOL_FN", None)
+        if not tool_spec or not tool_fn:
+            warnings.warn(f"Missing TOOL_SPEC or TOOL_FN in {module_path}")
+            continue
+
+        tool_name = tool_spec.get("name") or tool_spec.get("function", {}).get("name")
+        if not tool_name:
+            warnings.warn(f"Missing tool name in {module_path}")
+            continue
+
+        tool_specs.append(tool_spec)
+        tool_fns[tool_name] = tool_fn
+
+    return tool_specs, tool_fns
+
+def build_function_tool_outputs(response, tool_fns):
+    tool_outputs = []
+    output = getattr(response, "output", None) or []
+    for item in output:
+        item_type = getattr(item, "type", None)
+        if item_type is None and isinstance(item, dict):
+            item_type = item.get("type")
+        if item_type != "function_call":
+            continue
+
+        tool_name = getattr(item, "name", None)
+        if tool_name is None and isinstance(item, dict):
+            tool_name = item.get("name")
+
+        call_id = getattr(item, "call_id", None)
+        if call_id is None and isinstance(item, dict):
+            call_id = item.get("call_id")
+
+        args_raw = getattr(item, "arguments", None)
+        if args_raw is None and isinstance(item, dict):
+            args_raw = item.get("arguments")
+
+        try:
+            args = json.loads(args_raw or "{}")
+        except Exception as e:
+            result = f"ERROR: Invalid JSON arguments for {tool_name}: {e}"
+        else:
+            tool_fn = tool_fns.get(tool_name)
+            if tool_fn is None:
+                result = f"ERROR: Unknown tool {tool_name}"
+            else:
+                try:
+                    result = tool_fn(**args)
+                except Exception as e:
+                    result = f"ERROR: {type(e).__name__}: {e}"
+
+        tool_outputs.append(
+            {
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": result,
+            }
+        )
+
+    return tool_outputs
+
 def get_used_tools(response):
     tools = []
     output = getattr(response, "output", None) or []
@@ -170,13 +256,14 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         {"role": msg["role"], "content": msg["content"]} for msg in json_session
     ]
 
+    function_tools, function_tool_fns = load_function_tools()
+    tools = [{"type": "web_search"}] + function_tools
+
     # Call the OpenAI API with the conversation history
     try:
         response = client.responses.create(
             model=model,
-            tools=[
-                {"type": "web_search"}
-                ],
+            tools=tools,
             input=formatted_messages,
             include=["web_search_call.action.sources"],
         )
@@ -185,6 +272,16 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
     
+    tool_outputs = build_function_tool_outputs(response, function_tool_fns)
+    if tool_outputs:
+        response = client.responses.create(
+            model=model,
+            tools=tools,
+            previous_response_id=response.id,
+            input=tool_outputs,
+            include=["web_search_call.action.sources"],
+        )
+
     # Extract the assistant's response
     assistant_text = response.output_text
     json_session.append({"role": "assistant", "content": assistant_text})
