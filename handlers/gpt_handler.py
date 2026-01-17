@@ -242,7 +242,8 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
                     "answer in one reply and do not ask follow-up questions. "
                     "If tool inputs are missing, do NOT call tools; respond with plain text instead. "
                     "When calling tools, always include all required arguments per the tool schema; "
-                    "never call a tool with empty arguments."
+                    "never call a tool with empty arguments. If the user asks for specific data, especially "
+                    "when it is time sensitive, you MUST check the internet using the web_search tool."
                 ),
             }
         )
