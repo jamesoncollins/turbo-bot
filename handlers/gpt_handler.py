@@ -80,6 +80,23 @@ class GptHandler(HashtagHandler):
             retval+=model.id
             retval+="    \n"
 
+        function_tools, _ = load_function_tools()
+        tool_lines = []
+        for tool in function_tools:
+            name = tool.get("name") or tool.get("function", {}).get("name")
+            desc = tool.get("description") or tool.get("function", {}).get("description")
+            if name:
+                if desc:
+                    tool_lines.append(f"{name} - {desc}")
+                else:
+                    tool_lines.append(name)
+        tool_lines.sort()
+        retval += "Available function tools are:    \n"
+        if tool_lines:
+            retval += "\n".join(tool_lines) + "    \n"
+        else:
+            retval += "none    \n"
+
         return retval
 
     @staticmethod
