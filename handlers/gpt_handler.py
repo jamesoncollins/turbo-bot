@@ -108,6 +108,36 @@ def save_conversation_history(session_key, history):
     with open(history_file, "w") as file:
         json.dump(trimmed_history, file, indent=4)
 
+def get_used_tools(response):
+    tools = []
+    output = getattr(response, "output", None) or []
+    for item in output:
+        item_type = getattr(item, "type", None)
+        if item_type is None and isinstance(item, dict):
+            item_type = item.get("type")
+        tool_name = None
+        if item_type == "tool_call":
+            tool_name = getattr(item, "name", None)
+            if tool_name is None and isinstance(item, dict):
+                tool_name = item.get("name")
+        elif item_type == "function_call":
+            tool_name = getattr(item, "name", None)
+            if tool_name is None and isinstance(item, dict):
+                tool_name = item.get("name")
+            if tool_name is None:
+                tool_name = "function"
+        elif item_type and item_type.endswith("_call"):
+            tool_name = item_type[:-5]
+        if tool_name:
+            tools.append(tool_name)
+    seen = set()
+    unique_tools = []
+    for tool in tools:
+        if tool not in seen:
+            unique_tools.append(tool)
+            seen.add(tool)
+    return unique_tools
+
 def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1"):
     """
     Submits user input to the GPT model, maintaining conversation history.
@@ -161,6 +191,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1
     print(json_session)
 
     # Prepare model details
+    tools_used = get_used_tools(response)
+    tools_text = ", ".join(tools_used) if tools_used else "none"
     model_details = {
         "model": response.model,
         "usage": response.usage.total_tokens,
@@ -171,7 +203,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1
     details_string = (
         f"\n\nModel: {model_details['model']}\n"
         f"Session Key: {model_details['session_key']}\n"
-        f"Token Usage: {model_details['usage']}"
+        f"Token Usage: {model_details['usage']}\n"
+        f"Tools Used: {tools_text}"
     )
         
 
