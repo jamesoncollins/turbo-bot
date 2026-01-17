@@ -29,7 +29,7 @@ def _plot_series(ax, series: dict, default_kind: str, categorical_labels: Option
 
 
 def plot_from_data(
-    mode: str,
+    mode: Optional[str] = None,
     y: Optional[List[float]] = None,
     x: Optional[List[float]] = None,
     labels: Optional[List[str]] = None,
@@ -52,6 +52,12 @@ def plot_from_data(
         kind: One of line, scatter, bar (used for single series).
     """
     categorical_labels = None
+    if mode is None:
+        if series is not None:
+            mode = "multi"
+        else:
+            mode = "single"
+
     if mode not in ("single", "multi"):
         raise ValueError("mode must be 'single' or 'multi'")
 
