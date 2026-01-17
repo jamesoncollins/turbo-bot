@@ -45,7 +45,13 @@ class HashtagHandler(BaseHandler):
             return {}
 
         matched_text = match.group(0)
-        substrings = match.group(1).split('.')[1:] if match.group(1) else []
+        if match.group(1):
+            if len(mapping) == 1:
+                substrings = [match.group(1)[1:]]
+            else:
+                substrings = match.group(1).split('.')[1:]
+        else:
+            substrings = []
         result = {"hashtag": matched_text.split('.')[0]}
 
         for idx, (key, default) in mapping.items():
@@ -66,7 +72,7 @@ class HashtagHandler(BaseHandler):
         Returns:
             str: The input string without the hashtag and its substrings.
         """
-        pattern = fr"(?<!\w){hashtag_pattern}(\.[\w]+)*\b"
+        pattern = fr"(?<!\w){hashtag_pattern}(\.[^\.\s]+)*\b"
         return re.sub(pattern, "", input_str).strip()
 
     def get_hashtag(self) -> str:
