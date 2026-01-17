@@ -357,12 +357,13 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         f"Tools Used (final): {tools_text_final}\n"
         f"Function Calls Executed: {function_tool_calls}\n"
         f"Response Steps: {response_steps}\n"
-        f"Tool Loop Truncated: {tool_loop_truncated}"
+        f"Tool Loop Truncated: {tool_loop_truncated}\n"
+        f"Tool Attachments: {len(tool_attachments)}"
     )
         
 
     # Return the assistant's reply with model details
-    attachments = [json_to_base64_text_file(json_session)] + tool_attachments
+    attachments = tool_attachments + [json_to_base64_text_file(json_session)]
     return {"message": assistant_text + details_string, "attachments": attachments}
 
 def is_image_model(model_name: str) -> bool:
