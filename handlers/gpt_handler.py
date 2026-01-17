@@ -13,12 +13,15 @@ if key=="":
     warnings.warn("Warning...........No OPENAI_API_KEY provided")
 client = OpenAI(api_key=key)
 
+DEFAULT_MODEL = "gpt-4.1"
+DEFAULT_IMAGE_MODEL = "dall-e-3"
+IMAGE_MODEL_PREFIXES = ("chatgpt-image-", "gpt-image-", "dall-e-")
+
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
 
-image_generation_models = ["dall-e-2", "dall-e-3"]
 
 class GptHandler(HashtagHandler):
 
@@ -29,21 +32,18 @@ class GptHandler(HashtagHandler):
 
     def get_substring_mapping(self) -> dict:
         # Provide mapping and default value for 'model'
-        return {0: ("model", "gpt-4.1")}
+        return {0: ("model", DEFAULT_MODEL)}
 
     def process_message(self, msg, attachments):
         
         if self.hashtag_data.get("model") == "help":
             return {"message": self.get_help_text(), "attachments": []}
-        
-        if self.hashtag_data["model"] == "image":
-            self.hashtag_data["model"] = "dall-e-3"  
-                      
-        if self.hashtag_data["model"] in image_generation_models:
-            return  submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
-        
 
-            
+        if self.hashtag_data["model"] == "image":
+            self.hashtag_data["model"] = DEFAULT_IMAGE_MODEL
+
+        if is_image_model(self.hashtag_data["model"]):
+            return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
         
         # try to get quote info.  currently this is a try becuase i dont know
         # how it looks for a data message
@@ -62,22 +62,21 @@ class GptHandler(HashtagHandler):
             url = self.extract_url(msg)
             url_text = extract_text_from_url(url)
             msg = "Please summarize this text:\n" + url_text;
-            return submit_gpt(msg, json_quoted_convo, None, "gpt-4.1")
+            return submit_gpt(msg, json_quoted_convo, None, DEFAULT_MODEL)
        
         return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
 
     @staticmethod    
     def get_help_text() -> str:
         retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
+        retval += "Use #gpt.image to generate an image with the default image model.\n"
+        retval += "Image model prefixes: chatgpt-image-*, gpt-image-*, dall-e-*.\n"
         retval += "Available models are:    \n"
         
         models = client.models.list()
         for model in models:
             retval+=model.id
             retval+="    \n"
-            
-        retval += "Models that support image generation are:\n"
-        retval += '    \n'.join(str(x) for x in image_generation_models)
 
         return retval
 
@@ -138,7 +137,7 @@ def get_used_tools(response):
             seen.add(tool)
     return unique_tools
 
-def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1"):
+def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_MODEL):
     """
     Submits user input to the GPT model, maintaining conversation history.
     
@@ -175,7 +174,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1
     try:
         response = client.responses.create(
             model=model,
-            tools=[{"type": "web_search"}],
+            tools=[
+                {"type": "web_search"}
+                ],
             input=formatted_messages,
             include=["web_search_call.action.sources"],
         )
@@ -211,22 +212,52 @@ def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1
     # Return the assistant's reply with model details
     return {"message": assistant_text + details_string, "attachments": [json_to_base64_text_file(json_session)]}
 
-def submit_gpt_image_gen(user_input, session_key=None, model="dall-e-2"):
+def is_image_model(model_name: str) -> bool:
+    return any(model_name.startswith(prefix) for prefix in IMAGE_MODEL_PREFIXES)
+
+def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL):
 
     if session_key:
         return []
-    
-    response = client.images.generate(
-        model=model,
-        prompt=user_input,
-        n=1,
-        #size="256x256",
-        response_format="b64_json",
-    )
 
-    return { "message": response.data[0].revised_prompt, "attachments": [response.data[0].b64_json] }
+    try:
+        response = client.images.generate(
+            model=model,
+            prompt=user_input,
+            n=1,
+            #size="256x256",
+            response_format="b64_json",
+        )
+    except Exception as e:
+        if "Unknown parameter: 'response_format'" in str(e):
+            response = client.images.generate(
+                model=model,
+                prompt=user_input,
+                n=1,
+                #size="256x256",
+            )
+        else:
+            raise
 
+    image_data = response.data[0]
+    image_b64 = getattr(image_data, "b64_json", None)
+    if image_b64 is None and isinstance(image_data, dict):
+        image_b64 = image_data.get("b64_json")
 
+    if not image_b64:
+        image_url = getattr(image_data, "url", None)
+        if image_url is None and isinstance(image_data, dict):
+            image_url = image_data.get("url")
+        if image_url:
+            image_response = requests.get(image_url)
+            image_response.raise_for_status()
+            image_b64 = base64.b64encode(image_response.content).decode("utf-8")
+
+    revised_prompt = getattr(image_data, "revised_prompt", None)
+    if revised_prompt is None and isinstance(image_data, dict):
+        revised_prompt = image_data.get("revised_prompt")
+
+    return { "message": revised_prompt, "attachments": [image_b64] if image_b64 else [] }
 
 
 
