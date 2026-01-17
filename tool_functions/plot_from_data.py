@@ -105,7 +105,7 @@ def plot_from_data(
     return {"text": "Plot generated.", "attachments": [image_b64]}
 
 
-# Responses API tool spec (NOT Chat Completions format)
+# Responses API tool spec (new format only)
 TOOL_SPEC: Dict = {
     "type": "function",
     "name": "plot_from_data",
@@ -117,6 +117,7 @@ TOOL_SPEC: Dict = {
     "parameters": {
         "type": "object",
         "additionalProperties": False,
+        "required": ["mode"],
         "properties": {
             "mode": {
                 "type": "string",
@@ -148,13 +149,13 @@ TOOL_SPEC: Dict = {
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
+                    "required": ["y"],
                     "properties": {
                         "name": {"type": "string"},
                         "x": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "string"}]}},
                         "y": {"type": "array", "items": {"type": "number"}, "minItems": 1},
                         "kind": {"type": "string", "enum": ["line", "scatter", "bar"]},
                     },
-                    "required": ["y"],
                 },
             },
             "title": {"type": "string"},
@@ -162,21 +163,18 @@ TOOL_SPEC: Dict = {
             "ylabel": {"type": "string"},
             "kind": {"type": "string", "enum": ["line", "scatter", "bar"]},
         },
-        "required": ["mode"],
-        "oneOf": [
+        # Conditional requirements without oneOf (oneOf is rejected by the API validator)
+        "allOf": [
             {
-                "properties": {"mode": {"const": "single"}},
-                "required": ["mode", "y"],
+                "if": {"properties": {"mode": {"const": "single"}}},
+                "then": {"required": ["y"]},
             },
             {
-                "properties": {"mode": {"const": "multi"}},
-                "required": ["mode", "series"],
+                "if": {"properties": {"mode": {"const": "multi"}}},
+                "then": {"required": ["series"]},
             },
         ],
     },
-    # If your SDK version supports it for Responses tools, keep it.
-    # It is harmless to leave if ignored; remove if your API rejects it.
-    "strict": True,
 }
 
 TOOL_FN = plot_from_data

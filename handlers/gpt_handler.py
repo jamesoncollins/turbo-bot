@@ -6,7 +6,6 @@ from openai import OpenAI
 import importlib.util
 import warnings
 import base64
-import io
 
 key = os.environ.get("OPENAI_API_KEY", "")
 if key == "":
@@ -79,73 +78,16 @@ class GptHandler(HashtagHandler):
             name = tool.get("name")
             desc = tool.get("description")
             if name:
-                if desc:
-                    tool_lines.append(f"{name} - {desc}")
-                else:
-                    tool_lines.append(name)
+                tool_lines.append(f"{name} - {desc}" if desc else name)
         tool_lines.sort()
-        retval += "Available function tools are:    \n"
-        if tool_lines:
-            retval += "\n".join(tool_lines) + "    \n"
-        else:
-            retval += "none    \n"
 
+        retval += "Available function tools are:    \n"
+        retval += "\n".join(tool_lines) + "    \n" if tool_lines else "none    \n"
         return retval
 
     @staticmethod
     def get_name() -> str:
         return "GptHandler"
-
-
-def get_history_file_path(session_key):
-    safe_key = "".join(c for c in session_key if c.isalnum() or c in (" ", ".", "_")).rstrip()
-    return os.path.join(HISTORY_DIR, f"{safe_key}.json")
-
-
-def load_conversation_history(session_key):
-    history_file = get_history_file_path(session_key)
-    if os.path.exists(history_file):
-        with open(history_file, "r") as file:
-            history = json.load(file)
-        return history
-    return []
-
-
-def save_conversation_history(session_key, history):
-    history_file = get_history_file_path(session_key)
-    trimmed_history = history[-MAX_HISTORY_LENGTH:]
-    with open(history_file, "w") as file:
-        json.dump(trimmed_history, file, indent=4)
-
-
-def normalize_tool_spec_for_responses(tool_spec: dict) -> dict:
-    """
-    Ensure every tool spec passed to client.responses.create() is in Responses API format:
-      {"type":"function","name":..., "description":..., "parameters":...}
-    If a tool is in Chat Completions format:
-      {"type":"function","function":{...}}
-    convert it.
-    """
-    if not isinstance(tool_spec, dict):
-        return tool_spec
-
-    if tool_spec.get("type") != "function":
-        return tool_spec
-
-    if "function" in tool_spec and isinstance(tool_spec["function"], dict):
-        fn = tool_spec["function"]
-        out = {
-            "type": "function",
-            "name": fn.get("name"),
-            "description": fn.get("description", ""),
-            "parameters": fn.get("parameters", {"type": "object", "properties": {}}),
-        }
-        if "strict" in fn:
-            out["strict"] = fn["strict"]
-        return out
-
-    # Already Responses-style
-    return tool_spec
 
 
 def load_function_tools():
@@ -176,8 +118,6 @@ def load_function_tools():
             warnings.warn(f"Missing TOOL_SPEC or TOOL_FN in {module_path}")
             continue
 
-        tool_spec = normalize_tool_spec_for_responses(tool_spec)
-
         tool_name = tool_spec.get("name")
         if not tool_name:
             warnings.warn(f"Missing tool name in {module_path}")
@@ -190,16 +130,12 @@ def load_function_tools():
 
 
 def _missing_required_for_plot_from_data(args: dict) -> list:
-    """
-    Cheap, tool-specific guard that produces better corrective feedback than a stack trace.
-    """
     missing = []
     mode = args.get("mode")
     if mode is None:
-        missing.append("mode")
-        return missing
+        return ["mode"]
     if mode == "single":
-        if "y" not in args or args.get("y") in (None, []) :
+        if "y" not in args or args.get("y") in (None, []):
             missing.append("y")
     elif mode == "multi":
         if "series" not in args or args.get("series") in (None, []):
@@ -235,7 +171,6 @@ def build_function_tool_outputs(response, tool_fns):
 
         tool_calls_debug.append({"tool": tool_name, "arguments": args_raw})
 
-        # Parse args
         try:
             args = json.loads(args_raw or "{}")
         except Exception as e:
@@ -244,7 +179,6 @@ def build_function_tool_outputs(response, tool_fns):
             tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
             continue
 
-        # Guard: empty args
         if not isinstance(args, dict) or len(args) == 0:
             result = (
                 f"ERROR: Empty arguments for tool {tool_name}. "
@@ -261,7 +195,6 @@ def build_function_tool_outputs(response, tool_fns):
             tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
             continue
 
-        # Optional: tool-specific required checking (better feedback than stack traces)
         if tool_name == "plot_from_data":
             missing = _missing_required_for_plot_from_data(args)
             if missing:
@@ -273,7 +206,6 @@ def build_function_tool_outputs(response, tool_fns):
                 tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
                 continue
 
-        # Execute
         try:
             result = tool_fn(**args)
         except Exception as e:
@@ -289,13 +221,7 @@ def build_function_tool_outputs(response, tool_fns):
         elif not isinstance(result, str):
             output_text = json.dumps(result, default=str)
 
-        tool_outputs.append(
-            {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": output_text,
-            }
-        )
+        tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": output_text})
 
     return tool_outputs, tool_attachments, tool_errors, tool_calls_debug
 
@@ -321,10 +247,10 @@ def get_used_tools(response):
 
     seen = set()
     unique_tools = []
-    for tool in tools:
-        if tool not in seen:
-            unique_tools.append(tool)
-            seen.add(tool)
+    for t in tools:
+        if t not in seen:
+            unique_tools.append(t)
+            seen.add(t)
     return unique_tools
 
 
@@ -347,7 +273,6 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
         )
 
     json_session.append({"role": "user", "content": user_input})
-
     formatted_messages = [{"role": msg["role"], "content": msg["content"]} for msg in json_session]
 
     function_tools, function_tool_fns = load_function_tools()
@@ -405,8 +330,6 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
     assistant_text = response.output_text
     json_session.append({"role": "assistant", "content": assistant_text})
 
-    print(json_session)
-
     tools_used_final = get_used_tools(response)
     tools_text_initial = ", ".join(tools_used_initial) if tools_used_initial else "none"
     tools_text_final = ", ".join(tools_used_final) if tools_used_final else "none"
@@ -452,11 +375,7 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
         )
     except Exception as e:
         if "Unknown parameter: 'response_format'" in str(e):
-            response = client.images.generate(
-                model=model,
-                prompt=user_input,
-                n=1,
-            )
+            response = client.images.generate(model=model, prompt=user_input, n=1)
         else:
             raise
 
@@ -482,21 +401,15 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
 
 
 def json_to_base64_text_file(json_data):
-    try:
-        input_data = json.dumps(json_data)
-        input_bytes = input_data.encode("utf-8")
-        base64_encoded = base64.b64encode(input_bytes).decode("utf-8")
-        return base64_encoded
-    except Exception as e:
-        raise ValueError(f"An error occurred: {e}")
+    input_data = json.dumps(json_data)
+    input_bytes = input_data.encode("utf-8")
+    return base64.b64encode(input_bytes).decode("utf-8")
 
 
 def base64_text_file_to_json(b64_file_content):
     decoded_bytes = base64.b64decode(b64_file_content)
     json_string = decoded_bytes.decode("utf-8")
-    json_data = json.loads(json_string)
-    print(f"loaded json data {json_data}")
-    return json_data
+    return json.loads(json_string)
 
 
 def find_first_text_file_base64(base64_files):
