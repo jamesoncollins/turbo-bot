@@ -220,15 +220,44 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
     if session_key:
         return []
 
-    response = client.images.generate(
-        model=model,
-        prompt=user_input,
-        n=1,
-        #size="256x256",
-        response_format="b64_json",
-    )
+    try:
+        response = client.images.generate(
+            model=model,
+            prompt=user_input,
+            n=1,
+            #size="256x256",
+            response_format="b64_json",
+        )
+    except Exception as e:
+        if "Unknown parameter: 'response_format'" in str(e):
+            response = client.images.generate(
+                model=model,
+                prompt=user_input,
+                n=1,
+                #size="256x256",
+            )
+        else:
+            raise
 
-    return { "message": response.data[0].revised_prompt, "attachments": [response.data[0].b64_json] }
+    image_data = response.data[0]
+    image_b64 = getattr(image_data, "b64_json", None)
+    if image_b64 is None and isinstance(image_data, dict):
+        image_b64 = image_data.get("b64_json")
+
+    if not image_b64:
+        image_url = getattr(image_data, "url", None)
+        if image_url is None and isinstance(image_data, dict):
+            image_url = image_data.get("url")
+        if image_url:
+            image_response = requests.get(image_url)
+            image_response.raise_for_status()
+            image_b64 = base64.b64encode(image_response.content).decode("utf-8")
+
+    revised_prompt = getattr(image_data, "revised_prompt", None)
+    if revised_prompt is None and isinstance(image_data, dict):
+        revised_prompt = image_data.get("revised_prompt")
+
+    return { "message": revised_prompt, "attachments": [image_b64] if image_b64 else [] }
 
 
 
