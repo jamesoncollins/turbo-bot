@@ -277,7 +277,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         json_session.append({"role": "system", "content": 
              "You are a helpful chatbot for signal groups. This chat is single-shot only: "
              "you must answer in one reply and must not ask follow-up questions. "
-             "If a change is needed, the user will send a new message."
+             "If a change is needed, the user will send a new message. "
+             "When calling tools, always include all required arguments per the tool schema; "
+             "never call a tool with empty arguments."
                              }
         )
         
