@@ -289,6 +289,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
     
+    tools_used_initial = get_used_tools(response)
     tool_outputs = build_function_tool_outputs(response, function_tool_fns)
     function_tool_calls = len(tool_outputs)
     response_steps = 1
@@ -309,8 +310,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
     print(json_session)
 
     # Prepare model details
-    tools_used = get_used_tools(response)
-    tools_text = ", ".join(tools_used) if tools_used else "none"
+    tools_used_final = get_used_tools(response)
+    tools_text_initial = ", ".join(tools_used_initial) if tools_used_initial else "none"
+    tools_text_final = ", ".join(tools_used_final) if tools_used_final else "none"
     model_details = {
         "model": response.model,
         "usage": response.usage.total_tokens,
@@ -322,7 +324,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         f"\n\nModel: {model_details['model']}\n"
         f"Session Key: {model_details['session_key']}\n"
         f"Token Usage: {model_details['usage']}\n"
-        f"Tools Used: {tools_text}\n"
+        f"Tools Used (initial): {tools_text_initial}\n"
+        f"Tools Used (final): {tools_text_final}\n"
         f"Function Calls Executed: {function_tool_calls}\n"
         f"Response Steps: {response_steps}"
     )
