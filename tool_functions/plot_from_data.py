@@ -29,6 +29,7 @@ def _plot_series(ax, series: dict, default_kind: str):
 def plot_from_data(
     y: Optional[List[float]] = None,
     x: Optional[List[float]] = None,
+    labels: Optional[List[str]] = None,
     series: Optional[List[dict]] = None,
     title: str = "Plot",
     xlabel: str = "X",
@@ -50,6 +51,10 @@ def plot_from_data(
     if series is None:
         if y is None:
             raise ValueError("Provide 'y' or 'series'")
+        if labels is not None:
+            if len(labels) != len(y):
+                raise ValueError("'labels' length must match 'y' length")
+            x = labels
         series = [{"name": None, "x": x, "y": y, "kind": kind}]
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -92,6 +97,11 @@ TOOL_SPEC: Dict = {
                     "items": {"type": "number"},
                     "description": "Optional X values for a single series.",
                 },
+                "labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional labels for a single series (same length as y).",
+                },
                 "series": {
                     "type": "array",
                     "items": {
@@ -110,6 +120,10 @@ TOOL_SPEC: Dict = {
                 "ylabel": {"type": "string"},
                 "kind": {"type": "string", "description": "line, scatter, or bar"},
             },
+            "anyOf": [
+                {"required": ["y"]},
+                {"required": ["series"]}
+            ],
         },
     },
 }
