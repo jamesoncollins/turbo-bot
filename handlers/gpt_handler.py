@@ -129,33 +129,6 @@ def load_function_tools():
     return tool_specs, tool_fns
 
 
-def _validate_plot_from_data_args(args: dict) -> list:
-    missing = []
-
-    mode = args.get("mode")
-    series = args.get("series")
-
-    # Defaulting mirrors the tool function logic
-    if mode is None:
-        mode = "multi" if series is not None else "single"
-
-    if isinstance(mode, str):
-        mode = mode.strip().lower()
-
-    if mode not in ("single", "multi"):
-        return ["mode (must be 'single' or 'multi')"]
-
-    if mode == "single":
-        y = args.get("y")
-        if y is None or (isinstance(y, list) and len(y) == 0):
-            missing.append("y")
-    else:
-        if series is None or (isinstance(series, list) and len(series) == 0):
-            missing.append("series")
-
-    return missing
-
-
 def build_function_tool_outputs(response, tool_fns):
     tool_outputs = []
     tool_attachments = []
@@ -207,17 +180,6 @@ def build_function_tool_outputs(response, tool_fns):
             tool_errors.append(result)
             tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
             continue
-
-        if tool_name == "plot_from_data":
-            missing = _validate_plot_from_data_args(args)
-            if missing:
-                result = (
-                    f"ERROR: Missing/invalid required fields for tool {tool_name}: {', '.join(missing)}. "
-                    f"Provide valid JSON arguments (mode + y for single, or mode + series for multi)."
-                )
-                tool_errors.append(result)
-                tool_outputs.append({"type": "function_call_output", "call_id": call_id, "output": result})
-                continue
 
         try:
             result = tool_fn(**args)
@@ -344,8 +306,8 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
     json_session.append({"role": "assistant", "content": assistant_text})
 
     tools_used_final = get_used_tools(response)
-    tools_text_initial = ", ".join(tools_used_initial) if tools_used_initial else "none"
-    tools_text_final = ", ".join(tools_used_final) if tools_used_final else "none"
+    tools_text_initial = tools_used_initial if tools_used_initial else []
+    tools_text_final = tools_used_final if tools_used_final else []
 
     model_details = {
         "model": response.model,
