@@ -97,6 +97,10 @@ def plot_from_data(
     # Treat empty series as "not provided" (models sometimes include series: [])
     if isinstance(series, list) and len(series) == 0:
         series = None
+    if isinstance(labels, list) and len(labels) == 0:
+        labels = None
+    if isinstance(x, list) and len(x) == 0:
+        x = None
 
     mode = _coerce_mode(mode, series)
     kind = _coerce_kind(kind, "line")
