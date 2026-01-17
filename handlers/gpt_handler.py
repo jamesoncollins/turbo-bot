@@ -288,12 +288,30 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         # Code to handle the exception
         print(f"An error occurred: {e}")
         return {"message": f"An error occurred: {e}", "attachments": []}
-    
-    tools_used_initial = get_used_tools(response)
-    tool_outputs = build_function_tool_outputs(response, function_tool_fns)
-    function_tool_calls = len(tool_outputs)
-    response_steps = 1
-    if tool_outputs:
+
+    response_steps = 0
+    function_tool_calls = 0
+    tool_loop_truncated = False
+    tools_used_initial = []
+    tools_used_final = []
+
+    max_tool_steps = 100
+    while True:
+        response_steps += 1
+        if response_steps == 1:
+            tools_used_initial = get_used_tools(response)
+
+        tool_outputs = build_function_tool_outputs(response, function_tool_fns)
+        function_tool_calls += len(tool_outputs)
+        if not tool_outputs:
+            tools_used_final = get_used_tools(response)
+            break
+
+        if response_steps >= max_tool_steps:
+            tool_loop_truncated = True
+            tools_used_final = get_used_tools(response)
+            break
+
         response = client.responses.create(
             model=model,
             tools=tools,
@@ -301,7 +319,6 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
             input=tool_outputs,
             include=["web_search_call.action.sources"],
         )
-        response_steps = 2
 
     # Extract the assistant's response
     assistant_text = response.output_text
@@ -327,7 +344,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         f"Tools Used (initial): {tools_text_initial}\n"
         f"Tools Used (final): {tools_text_final}\n"
         f"Function Calls Executed: {function_tool_calls}\n"
-        f"Response Steps: {response_steps}"
+        f"Response Steps: {response_steps}\n"
+        f"Tool Loop Truncated: {tool_loop_truncated}"
     )
         
 
