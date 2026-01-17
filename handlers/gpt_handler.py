@@ -290,6 +290,8 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         return {"message": f"An error occurred: {e}", "attachments": []}
     
     tool_outputs = build_function_tool_outputs(response, function_tool_fns)
+    function_tool_calls = len(tool_outputs)
+    response_steps = 1
     if tool_outputs:
         response = client.responses.create(
             model=model,
@@ -298,6 +300,7 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
             input=tool_outputs,
             include=["web_search_call.action.sources"],
         )
+        response_steps = 2
 
     # Extract the assistant's response
     assistant_text = response.output_text
@@ -319,7 +322,9 @@ def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_
         f"\n\nModel: {model_details['model']}\n"
         f"Session Key: {model_details['session_key']}\n"
         f"Token Usage: {model_details['usage']}\n"
-        f"Tools Used: {tools_text}"
+        f"Tools Used: {tools_text}\n"
+        f"Function Calls Executed: {function_tool_calls}\n"
+        f"Response Steps: {response_steps}"
     )
         
 
