@@ -13,6 +13,8 @@ if key=="":
     warnings.warn("Warning...........No OPENAI_API_KEY provided")
 client = OpenAI(api_key=key)
 
+DEFAULT_MODEL = "gpt-4.1"
+
 # Directory to store conversation histories
 HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
@@ -28,7 +30,7 @@ class GptHandler(HashtagHandler):
 
     def get_substring_mapping(self) -> dict:
         # Provide mapping and default value for 'model'
-        return {0: ("model", "gpt-4.1")}
+        return {0: ("model", DEFAULT_MODEL)}
 
     def process_message(self, msg, attachments):
         
@@ -52,7 +54,7 @@ class GptHandler(HashtagHandler):
             url = self.extract_url(msg)
             url_text = extract_text_from_url(url)
             msg = "Please summarize this text:\n" + url_text;
-            return submit_gpt(msg, json_quoted_convo, None, "gpt-4.1")
+            return submit_gpt(msg, json_quoted_convo, None, DEFAULT_MODEL)
        
         return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
 
@@ -125,7 +127,7 @@ def get_used_tools(response):
             seen.add(tool)
     return unique_tools
 
-def submit_gpt(user_input, json_session = None, session_key=None, model="gpt-4.1"):
+def submit_gpt(user_input, json_session = None, session_key=None, model=DEFAULT_MODEL):
     """
     Submits user input to the GPT model, maintaining conversation history.
     
