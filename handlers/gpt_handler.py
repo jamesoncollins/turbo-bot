@@ -43,22 +43,13 @@ class GptHandler(HashtagHandler):
         if is_image_model(self.hashtag_data["model"]):
             return submit_gpt_image_gen(self.cleaned_input, None, self.hashtag_data["model"])
 
-        json_quoted_convo = None
-        try:
-            quote_msg = self.context.message.raw_message["envelope"]["syncMessage"]["sentMessage"]["quote"]
-            quote_attachments = quote_msg["attachments"]
-            convo_b64 = find_first_text_file_base64(quote_attachments)
-            json_quoted_convo = base64_text_file_to_json(convo_b64)
-        except Exception:
-            pass
-
         if self.hashtag_data["model"] == "read":
             url = self.extract_url(msg)
             url_text = extract_text_from_url(url)
             msg = "Please summarize this text:\n" + url_text
-            return submit_gpt(msg, json_quoted_convo, None, DEFAULT_MODEL)
+            return submit_gpt(msg, None, DEFAULT_MODEL)
 
-        return submit_gpt(self.cleaned_input, json_quoted_convo, None, self.hashtag_data["model"])
+        return submit_gpt(self.cleaned_input, None, self.hashtag_data["model"])
 
     @staticmethod
     def get_help_text() -> str:
@@ -229,21 +220,25 @@ def get_used_tools(response):
     return unique_tools
 
 
-def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MODEL):
-    if not json_session:
-        json_session = []
+def submit_gpt(user_input, session_key=None, model=DEFAULT_MODEL):
+    json_session = []
 
     if len(json_session) == 0:
         json_session.append(
             {
                 "role": "system",
                 "content": (
-                    "You are a helpful chatbot for signal groups. This chat is single-shot only: "
-                    "answer in one reply and do not ask follow-up questions. "
-                    "If tool inputs are missing, do NOT call tools; respond with plain text instead. "
-                    "When calling tools, always include all required arguments per the tool schema; "
-                    "never call a tool with empty arguments. If the user asks for specific data, especially "
-                    "when it is time sensitive, you MUST check the internet using the web_search tool."
+                    "You are a helpful chatbot for signal groups. Single-shot only: answer in one reply "
+                    "and do not ask follow-up questions. If details are missing, make reasonable "
+                    "assumptions and state them briefly. Be concise and direct; use bullet points only "
+                    "when they improve clarity. Never invent numbers, dates, or factual data. If tool "
+                    "inputs are missing, do NOT call tools; respond with plain text instead. When calling "
+                    "tools, always include all required arguments per the tool schema; never call a tool "
+                    "with empty arguments. If the user asks for specific data or time-sensitive "
+                    "information (e.g., weather, prices, schedules), you MUST use web_search first and "
+                    "base the answer only on sources returned. If web_search does not return relevant "
+                    "results, say you could not find the data instead of guessing. If sources are provided, "
+                    "incorporate them in the answer when relevant."
                 ),
             }
         )
@@ -328,8 +323,7 @@ def submit_gpt(user_input, json_session=None, session_key=None, model=DEFAULT_MO
         f"Tool Calls: {tool_calls_debug if tool_calls_debug else 'none'}"
     )
 
-    attachments = tool_attachments + [json_to_base64_text_file(json_session)]
-    return {"message": assistant_text + details_string, "attachments": attachments}
+    return {"message": assistant_text + details_string, "attachments": tool_attachments}
 
 
 def is_image_model(model_name: str) -> bool:
@@ -372,29 +366,6 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
         revised_prompt = image_data.get("revised_prompt")
 
     return {"message": revised_prompt, "attachments": [image_b64] if image_b64 else []}
-
-
-def json_to_base64_text_file(json_data):
-    input_data = json.dumps(json_data)
-    input_bytes = input_data.encode("utf-8")
-    return base64.b64encode(input_bytes).decode("utf-8")
-
-
-def base64_text_file_to_json(b64_file_content):
-    decoded_bytes = base64.b64decode(b64_file_content)
-    json_string = decoded_bytes.decode("utf-8")
-    return json.loads(json_string)
-
-
-def find_first_text_file_base64(base64_files):
-    for b64_file in base64_files:
-        try:
-            decoded_bytes = base64.b64decode(b64_file)
-            _ = decoded_bytes.decode("utf-8")
-            return b64_file
-        except (base64.binascii.Error, UnicodeDecodeError):
-            continue
-    return None
 
 
 import requests
