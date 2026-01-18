@@ -74,7 +74,13 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             
     
     # Get available formats
-    ydl = yt_dlp.YoutubeDL({'quiet': True, 'playlistend': 1  })
+    base_ydl_opts = {
+        'quiet': True,
+        'playlistend': 1,
+        'js_runtimes': {'py_mini_racer': {}},
+        'extractor_args': {'youtube': {'player_client': ['android']}},
+    }
+    ydl = yt_dlp.YoutubeDL(base_ydl_opts)
     info = ydl.extract_info(url, download=False)
 
     formats = info.get("formats", [])
@@ -105,19 +111,23 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             }],
             'match_filter': filesize_limiter,
             'max_filesize': '1.25G',
-            'playlistend': 1                     # helps with twitter/dsky posts that have video in the comments
+            'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
+            'js_runtimes': base_ydl_opts['js_runtimes'],
+            'extractor_args': base_ydl_opts['extractor_args'],
         }
     else:
         print("No suitable format found. Downloading best quality and compressing if needed.")
         ydl_opts = {
-            'format': 'best',
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'progress_hooks': [progress_hook],
             'outtmpl': f'{suggested_filename}.%(ext)s',
             'postprocessors': [{
                 'key': 'FFmpegVideoConvertor',
                 'preferedformat': 'mp4',
             }],
-            'playlistend': 1                     # helps with twitter/dsky posts that have video in the comments
+            'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
+            'js_runtimes': base_ydl_opts['js_runtimes'],
+            'extractor_args': base_ydl_opts['extractor_args'],
         }
 
 
