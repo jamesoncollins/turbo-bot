@@ -77,7 +77,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     base_ydl_opts = {
         'quiet': True,
         'playlistend': 1,
-        'js_runtimes': ['py_mini_racer'],
+        'js_runtimes': {'py_mini_racer': {}},
         'extractor_args': {'youtube': {'player_client': ['android']}},
     }
     ydl = yt_dlp.YoutubeDL(base_ydl_opts)
