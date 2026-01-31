@@ -6,7 +6,37 @@ from utils.misc_utils import *
 import instaloader
 import os
 import re
+import ffmpeg
 from handlers.base_handler import BaseHandler
+
+import ffmpeg
+import os
+
+def force_h264(input_path: str) -> str:
+    """
+    Forces H.264 encoding using ffmpeg-python.
+    Returns the path to the H.264-encoded video.
+    """
+    output_path = input_path.replace(".mp4", "_h264.mp4")
+
+    (
+        ffmpeg
+        .input(input_path)
+        .output(
+            output_path,
+            vcodec="libx264",
+            acodec="aac",
+            pix_fmt="yuv420p",
+            profile="high",
+            level="4.1",
+            movflags="+faststart",
+        )
+        .overwrite_output()
+        .run(quiet=True)
+    )
+
+    return output_path
+
 
 class InstaHandler(BaseHandler):
     ALLOWED_DOMAINS = ["instagram.com", "www.instagram.com"]
@@ -111,9 +141,10 @@ def download_instagram_video_as_b64(url: str, username: str = None, password: st
                 break
         
         if video_filename:
-            # Convert the video to a base64 string using the existing file_to_base64 function
-            video_b64 = file_to_base64(video_filename)
-            print("Video successfully converted to base64.")
+            print("Forcing H.264 encoding...")
+            h264_video = force_h264(video_filename)
+            video_b64 = file_to_base64(h264_video)
+            print("H.264 video successfully converted to base64.")
             return video_b64
         else:
             print("Failed to find downloaded video file.")
@@ -132,4 +163,5 @@ def download_instagram_video_as_b64(url: str, username: str = None, password: st
 #     video_b64_string = download_instagram_video_as_b64(url, username if username else None, password if password else None)
 #
 #     if video_b64_string:
+
 #         print(f"Base64 encoded video: {video_b64_string[:100]}...")  # Show first 100 characters of the b64 string
