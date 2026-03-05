@@ -1,229 +1,159 @@
 # handlers/twitter_handler.py
-import hashlib
-import os
-import queue
-import threading
-from urllib.parse import urlparse, urlencode, parse_qsl
-from typing import Callable
-
 import yt_dlp
-
+import os
 from handlers.base_handler import BaseHandler
-from utils.misc_utils import convert_to_mp4
+from _ast import Try
+from utils.misc_utils import *
 
+class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
+    def __init__(self):
+        super(FilenameCollectorPP, self).__init__(None)
+        self.filenames = []
 
-# ------------------------------------------------------------------ #
-# Config                                                               #
-# ------------------------------------------------------------------ #
-
-CACHE_DIR        = os.path.join(os.path.dirname(__file__), "..", "cache", "twitter")
-MAX_WORKERS      = 3
-DOWNLOAD_TIMEOUT = 360  # seconds to wait before giving up
-
-_work_queue: queue.Queue = queue.Queue()
-_workers_started = False
-_pool_lock        = threading.Lock()
-
-_STRIP_PARAMS = {
-    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-    "si", "feature", "ref_src", "ref_url", "igshid", "s", "t",
-}
-
-
-# ------------------------------------------------------------------ #
-# URL normalisation                                                    #
-# ------------------------------------------------------------------ #
-
-def _normalize_url(url: str) -> str:
-    url = url.rstrip("$#&?. ")
-    parsed = urlparse(url)
-    clean_params = [
-        (k, v) for k, v in parse_qsl(parsed.query)
-        if k.lower() not in _STRIP_PARAMS
-    ]
-    return parsed._replace(query=urlencode(clean_params), fragment="").geturl()
-
-def _url_hash(url: str) -> str:
-    return hashlib.sha256(_normalize_url(url).encode()).hexdigest()
-
-def _cached_path(url: str) -> str:
-    return os.path.join(CACHE_DIR, f"{_url_hash(url)}.mp4")
-
-
-# ------------------------------------------------------------------ #
-# Worker pool                                                          #
-# ------------------------------------------------------------------ #
-
-def _ensure_workers():
-    global _workers_started
-    with _pool_lock:
-        if not _workers_started:
-            os.makedirs(CACHE_DIR, exist_ok=True)
-            for _ in range(MAX_WORKERS):
-                threading.Thread(target=_worker_loop, daemon=True).start()
-            _workers_started = True
-
-def _worker_loop():
-    while True:
-        url, result_queue = _work_queue.get()
-        try:
-            b64 = _fetch(url)
-        except Exception as e:
-            print(f"[TwitterHandler] Worker error for {url}: {e}")
-            b64 = None
-        finally:
-            _work_queue.task_done()
-        # Put result back into the per-request queue so the caller can pick it up
-        result_queue.put(b64)
-
-
-# ------------------------------------------------------------------ #
-# Handler                                                              #
-# ------------------------------------------------------------------ #
+    def run(self, information):
+        self.filenames.append(information["filepath"])
+        return [], information
 
 class TwitterHandler(BaseHandler):
+
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
         if not url:
             return False
-        with yt_dlp.YoutubeDL({"quiet": True, "playlistend": 1}) as ydl:
-            try:
-                ydl.extract_info(url, download=False)
-                return True
-            except Exception as e:
-                print(f"[TwitterHandler] can_handle probe failed: {e}")
-                return False
+        ydl = yt_dlp.YoutubeDL({'quiet': True, 'playlistend': 1  })
+        try:
+            info = ydl.extract_info(url, download=False)
+            return True
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return False
 
     def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
-        if not url:
-            return {"message": "No URL found.", "attachments": []}
-
-        _ensure_workers()
-
-        # Each request gets its own result queue — the worker posts here when done
-        result_queue: queue.Queue = queue.Queue()
-        _work_queue.put((url, result_queue))
-
-        print(f"[TwitterHandler] Waiting for download (timeout={DOWNLOAD_TIMEOUT}s)...")
-        try:
-            b64 = result_queue.get(timeout=DOWNLOAD_TIMEOUT)
-        except queue.Empty:
-            return {"message": "Download timed out. Try again or check the URL.", "attachments": []}
-
-        if not b64:
-            return {"message": "Failed to download video.", "attachments": []}
-
-        return {
-            "message": "Downloaded video content using yt_dlp.",
-            "attachments": [b64],
-        }
+        video_content = download_video(url)
+        if video_content:
+            return {
+                "message": "Downloaded video content using yt_dlp.",
+                "attachments": [BaseHandler.file_to_base64(video_content)],
+            }
+        return []
 
     @staticmethod
     def get_name() -> str:
         return "yt_dlp Handler"
+    
+def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video"):
+    """
+    Downloads the best quality video below the specified file size limit.
 
-
-# ------------------------------------------------------------------ #
-# Cache + fetch                                                        #
-# ------------------------------------------------------------------ #
-
-def _fetch(url: str) -> str:
-    cached = _cached_path(url)
-    if os.path.exists(cached):
-        print(f"[TwitterHandler] Cache hit: {cached}")
-        return BaseHandler.file_to_base64(cached)
-
-    norm = _normalize_url(url)
-    print(f"[TwitterHandler] Cache miss, downloading: {norm}")
-    download_video(norm, dest_path=cached)
-    return BaseHandler.file_to_base64(cached)
-
-
-# ------------------------------------------------------------------ #
-# Download                                                             #
-# ------------------------------------------------------------------ #
-
-def download_video(url: str, dest_path: str, max_filesize_mb: int = 90) -> str:
-
+    :param url: URL of the video to download
+    :param max_filesize_mb: Maximum file size in megabytes
+    :param suggested_filename: Suggested filename for the downloaded video (without extension)
+    :return: Actual filename of the downloaded video
+    """
+    
     class FilesizeLimitError(Exception):
         pass
 
     def progress_hook(d):
-        if d["status"] == "finished":
-            print("[yt_dlp] Download complete, post-processing...")
+        if d['status'] == 'finished':
+            print("Download complete. Processing...")
 
     def filesize_limiter(info_dict, *args, **kwargs):
-        filesize = int(info_dict.get("filesize", 0) or info_dict.get("filesize_approx", 0))
-        if filesize > 1500 * 1024 * 1024:
-            raise FilesizeLimitError("Exceeds 1.5 GB hard cap")
+        max_max_filesize_mb = 1500
+        filesize = info_dict.get('filesize', 0) or info_dict.get('filesize_approx', 0)
+        filesize = int(filesize)
+        if filesize > max_max_filesize_mb * 1024 * 1024:
+            raise FilesizeLimitError("File size exceeds limit!")
 
-    base_opts = {
-        "quiet": True,
-        "playlistend": 1,
-        "js_runtimes": {"py_mini_racer": {}},
-        "extractor_args": {"youtube": {"player_client": ["android"]}},
+    # try and delete the filename we're gonna use
+    test = os.listdir("./")        
+    for item in test:
+        if item.startswith(suggested_filename):
+            os.remove(os.path.join("./", item)) 
+            
+    
+    # Get available formats
+    base_ydl_opts = {
+        'quiet': True,
+        'playlistend': 1,
+        'js_runtimes': {'py_mini_racer': {}},
+        'extractor_args': {'youtube': {'player_client': ['android']}},
     }
+    ydl = yt_dlp.YoutubeDL(base_ydl_opts)
+    info = ydl.extract_info(url, download=False)
 
-    tmp_base = dest_path + ".tmp"
-
-    with yt_dlp.YoutubeDL(base_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-
+    formats = info.get("formats", [])
+    
+    # Find the largest format within the size limit
     selected_format = None
-    max_seen = 0
-    for fmt in info.get("formats", []):
+    max_filesize = 0
+    for fmt in formats:
         filesize = fmt.get("filesize", 0)
         has_video = fmt.get("vcodec") != "none"
         has_audio = fmt.get("acodec") != "none"
+        
         if filesize and has_video and has_audio and filesize <= max_filesize_mb * 1024 * 1024:
-            if filesize > max_seen:
-                max_seen = filesize
+            if filesize > max_filesize:
+                max_filesize = filesize
                 selected_format = fmt["format_id"]
+    selected_format = None # its not working well...
 
-    shared_opts = {
-        "progress_hooks": [progress_hook],
-        "outtmpl": f"{tmp_base}.%(ext)s",
-        "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
-        "playlistend": 1,
-        **base_opts,
-    }
+    if selected_format:
+        print(f"Found a format within size limit ({max_filesize_mb} MB). Downloading...")
+        ydl_opts = {
+            'format': selected_format,
+            'progress_hooks': [progress_hook],
+            'outtmpl': f'{suggested_filename}.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }],
+            'match_filter': filesize_limiter,
+            'max_filesize': '1.25G',
+            'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
+            'js_runtimes': base_ydl_opts['js_runtimes'],
+            'extractor_args': base_ydl_opts['extractor_args'],
+        }
+    else:
+        print("No suitable format found. Downloading best quality and compressing if needed.")
+        ydl_opts = {
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'progress_hooks': [progress_hook],
+            'outtmpl': f'{suggested_filename}.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }],
+            'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
+            'js_runtimes': base_ydl_opts['js_runtimes'],
+            'extractor_args': base_ydl_opts['extractor_args'],
+        }
 
-    ydl_opts = (
-        {**shared_opts, "format": selected_format, "match_filter": filesize_limiter}
-        if selected_format else
-        {**shared_opts, "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"}
-    )
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            meta = ydl.extract_info(url, download=True)
+            meta = ydl.extract_info(url, download=True)            
+           
             try:
-                ext = meta["ext"]
-            except (KeyError, TypeError):
+                ext = meta['ext']
+            except:
                 try:
-                    ext = meta["entries"][0]["ext"]
-                except Exception:
-                    raise ValueError("Could not determine extension from yt_dlp metadata")
+                    ext = meta['entries'][0]['ext']
+                except:
+                    raise ValueError("cant get filename")   
     except FilesizeLimitError as e:
-        raise ValueError(f"File too large: {e}")
+        raise ValueError(f"error: {e}")
     except Exception as e:
-        raise ValueError(f"yt_dlp error: {e}")
-
-    raw_tmp = f"{tmp_base}.{ext}"
-    in_file  = raw_tmp + ".in"
-    os.rename(raw_tmp, in_file)
-    converted = convert_to_mp4(in_file, raw_tmp, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
-
-    # Atomic move — partial files never enter the cache
-    os.rename(converted, dest_path)
-
-    try:
-        os.remove(in_file)
-    except OSError:
-        pass
-
-    print(f"[TwitterHandler] Cached to: {dest_path}")
-    return dest_path
+        raise ValueError(f"error: {e}")
+        
+    actual_filename = f"{suggested_filename}.{ext}"
+    print(f"Video file is: {actual_filename}")
+    
+    os.rename(actual_filename, actual_filename+".in")
+    output_fname = convert_to_mp4(actual_filename+".in", actual_filename, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
+    os.rename(output_fname, actual_filename)
+    
+    return actual_filename
 
