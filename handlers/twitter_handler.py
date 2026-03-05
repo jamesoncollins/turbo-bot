@@ -18,7 +18,7 @@ from utils.misc_utils import convert_to_mp4
 
 CACHE_DIR        = os.path.join(os.path.dirname(__file__), "..", "cache", "twitter")
 MAX_WORKERS      = 3
-DOWNLOAD_TIMEOUT = 120  # seconds to wait before giving up
+DOWNLOAD_TIMEOUT = 360  # seconds to wait before giving up
 
 _work_queue: queue.Queue = queue.Queue()
 _workers_started = False
@@ -226,3 +226,4 @@ def download_video(url: str, dest_path: str, max_filesize_mb: int = 90) -> str:
 
     print(f"[TwitterHandler] Cached to: {dest_path}")
     return dest_path
+
