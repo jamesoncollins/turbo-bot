@@ -2,7 +2,6 @@
 import hashlib
 import os
 import queue
-import re
 import threading
 from urllib.parse import urlparse, urlencode, parse_qsl
 from typing import Callable
@@ -14,38 +13,35 @@ from utils.misc_utils import convert_to_mp4
 
 
 # ------------------------------------------------------------------ #
-# Module-level worker pool — shared across all handler instances       #
+# Config                                                               #
 # ------------------------------------------------------------------ #
 
 CACHE_DIR        = os.path.join(os.path.dirname(__file__), "..", "cache", "twitter")
 MAX_WORKERS      = 3
+DOWNLOAD_TIMEOUT = 120  # seconds to wait before giving up
+
 _work_queue: queue.Queue = queue.Queue()
 _workers_started = False
 _pool_lock        = threading.Lock()
 
-# Query params that are pure tracking noise and safe to drop
 _STRIP_PARAMS = {
     "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
     "si", "feature", "ref_src", "ref_url", "igshid", "s", "t",
 }
 
+
+# ------------------------------------------------------------------ #
+# URL normalisation                                                    #
+# ------------------------------------------------------------------ #
+
 def _normalize_url(url: str) -> str:
-    """
-    Strip fragment, remove known tracking query params, and drop trailing
-    punctuation that sometimes gets swept up by message parsers.
-    Preserves meaningful params (e.g. YouTube ?v=, Twitter /status/).
-    """
     url = url.rstrip("$#&?. ")
     parsed = urlparse(url)
     clean_params = [
         (k, v) for k, v in parse_qsl(parsed.query)
         if k.lower() not in _STRIP_PARAMS
     ]
-    cleaned = parsed._replace(
-        query=urlencode(clean_params),
-        fragment="",
-    )
-    return cleaned.geturl()
+    return parsed._replace(query=urlencode(clean_params), fragment="").geturl()
 
 def _url_hash(url: str) -> str:
     return hashlib.sha256(_normalize_url(url).encode()).hexdigest()
@@ -54,19 +50,22 @@ def _cached_path(url: str) -> str:
     return os.path.join(CACHE_DIR, f"{_url_hash(url)}.mp4")
 
 
+# ------------------------------------------------------------------ #
+# Worker pool                                                          #
+# ------------------------------------------------------------------ #
+
 def _ensure_workers():
     global _workers_started
     with _pool_lock:
         if not _workers_started:
             os.makedirs(CACHE_DIR, exist_ok=True)
             for _ in range(MAX_WORKERS):
-                t = threading.Thread(target=_worker_loop, daemon=True)
-                t.start()
+                threading.Thread(target=_worker_loop, daemon=True).start()
             _workers_started = True
 
 def _worker_loop():
     while True:
-        url, callback = _work_queue.get()
+        url, result_queue = _work_queue.get()
         try:
             b64 = _fetch(url)
         except Exception as e:
@@ -74,12 +73,8 @@ def _worker_loop():
             b64 = None
         finally:
             _work_queue.task_done()
-        callback(b64)
-
-def _enqueue(url: str, callback: Callable[[str | None], None]):
-    _ensure_workers()
-    print(f"[TwitterHandler] Queued (depth {_work_queue.qsize() + 1}): {url}")
-    _work_queue.put((url, callback))
+        # Put result back into the per-request queue so the caller can pick it up
+        result_queue.put(b64)
 
 
 # ------------------------------------------------------------------ #
@@ -101,33 +96,29 @@ class TwitterHandler(BaseHandler):
                 return False
 
     def process_message(self, msg, attachments):
-        """
-        Returns immediately with an acknowledgement.
-        The closure below captures `msg` so the worker thread can reply
-        directly once the download completes.
-        """
         url = self.extract_url(self.input_str)
         if not url:
             return {"message": "No URL found.", "attachments": []}
 
-        # Closure captures msg — this is what lets the worker reply to the
-        # right conversation when it eventually finishes.
-        def on_complete(b64: str | None):
-            if not b64:
-                response = {"message": "Sorry, failed to download that video.", "attachments": []}
-            else:
-                response = {
-                    "message": "Downloaded video content using yt_dlp.",
-                    "attachments": [b64],
-                }
-            # self.send_reply is assumed to be the method your bot framework
-            # uses to push a message back to a conversation — rename to match
-            # whatever your BaseHandler / bot provides (e.g. self.reply,
-            # self.send_message, msg.reply, etc.)
-            self.send_reply(msg, response)
+        _ensure_workers()
 
-        _enqueue(url, on_complete)
-        return {"message": "Downloading video, please wait...", "attachments": []}
+        # Each request gets its own result queue — the worker posts here when done
+        result_queue: queue.Queue = queue.Queue()
+        _work_queue.put((url, result_queue))
+
+        print(f"[TwitterHandler] Waiting for download (timeout={DOWNLOAD_TIMEOUT}s)...")
+        try:
+            b64 = result_queue.get(timeout=DOWNLOAD_TIMEOUT)
+        except queue.Empty:
+            return {"message": "Download timed out. Try again or check the URL.", "attachments": []}
+
+        if not b64:
+            return {"message": "Failed to download video.", "attachments": []}
+
+        return {
+            "message": "Downloaded video content using yt_dlp.",
+            "attachments": [b64],
+        }
 
     @staticmethod
     def get_name() -> str:
@@ -139,17 +130,13 @@ class TwitterHandler(BaseHandler):
 # ------------------------------------------------------------------ #
 
 def _fetch(url: str) -> str:
-    """
-    Returns base64 of the video. Cache keyed on normalised URL hash.
-    Thread-safe: unique filenames per URL, atomic rename on write.
-    """
     cached = _cached_path(url)
     if os.path.exists(cached):
         print(f"[TwitterHandler] Cache hit: {cached}")
         return BaseHandler.file_to_base64(cached)
 
     norm = _normalize_url(url)
-    print(f"[TwitterHandler] Cache miss — downloading: {norm}")
+    print(f"[TwitterHandler] Cache miss, downloading: {norm}")
     download_video(norm, dest_path=cached)
     return BaseHandler.file_to_base64(cached)
 
@@ -159,10 +146,6 @@ def _fetch(url: str) -> str:
 # ------------------------------------------------------------------ #
 
 def download_video(url: str, dest_path: str, max_filesize_mb: int = 90) -> str:
-    """
-    Downloads url, converts/compresses, and atomically writes to dest_path.
-    Raises ValueError on failure. Partial files never land in dest_path.
-    """
 
     class FilesizeLimitError(Exception):
         pass
@@ -233,7 +216,7 @@ def download_video(url: str, dest_path: str, max_filesize_mb: int = 90) -> str:
     os.rename(raw_tmp, in_file)
     converted = convert_to_mp4(in_file, raw_tmp, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
 
-    # Atomic: only appears in cache once fully written
+    # Atomic move — partial files never enter the cache
     os.rename(converted, dest_path)
 
     try:
