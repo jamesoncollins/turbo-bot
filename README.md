@@ -1,83 +1,63 @@
 # turbo-bot
 
-## How this works
+TurboBot is a Python Signal bot that runs against the signal-cli REST API. It routes messages through dynamically discovered handlers in `handlers/`, supports hashtag commands such as `#gpt`, and can return text plus base64-encoded attachments.
 
-A docker compose file is used to run a signalbot, and the signal rest api.
+## Documentation
 
-The signalbot docker will automatically get this repo and execute run.py.
+- [Architecture](docs/ARCHITECTURE.md): runtime flow, dispatch, handler discovery, and important paths.
+- [Configuration](docs/CONFIGURATION.md): required environment variables and `secret.txt` setup.
+- [Operations](docs/OPERATIONS.md): Docker Compose services, bootstrap flow, auto-updates, and Signal linking.
+- [Writing handlers](docs/HANDLERS.md): how to add new bot features.
+- [GPT function tools](docs/GPT_TOOLS.md): how to add tools callable by the `#gpt` handler.
+- [Testing](docs/TESTING.md): local test commands, mocks, and integration-test caveats.
+- [README migration checklist](docs/README_MIGRATION.md): where the original README content moved and why no setup guidance was dropped.
 
-A second signalbot docker is made that checks out the devel branch instead of main.
+## Quick start
 
-Both containers monitor the github repo and will automatic download updated code.
+1. Start the Docker Compose stack.
+2. Link `signal-cli` to a Signal account/device if this is the first run.
+3. Copy the sample secret file and edit it with real values:
 
+   ```bash
+   cp secret.example.txt secret.txt
+   ```
 
-## Running
+4. Configure at least:
 
-Execute the docker compose file.  In the signalbot docker make sure you make a secrets.txt file that has these vairables:
+   ```bash
+   export SIGNAL_API_URL="signal-cli:8181"
+   export BOT_NUMBER="+15555555555"
+   export CONTACT_NUMBERS="+15555555555"
+   export GROUP_NAMES="My Signal Group"
+   ```
 
-```
-export      SIGNAL_API_URL=signal-cli:8181 # URL for the signal-cli API
-export      BOT_NUMBER="+1555555555" # The registered Signal number for your bot
-export      CONTACT_NUMERS="+1555555555" # true/false, a single contact, a ; seperated list of contacts
-export      GROUP_NAMES="MYGROUP" # true/false, a single group, a ; seperated list of groups
-export      IGNORE_GROUPS="TurboBot Devel"	#optional
-export      INSTA_USERNAME="myuser"
-export      INSTA_PASSWORD="mypassword"
-export      OPENAI_API_KEY="keygoeshere"
-```
-      
-Update the docker-compose file to point the signal-cli bot(s) to your repo,
-or use this one.  Default file makes one for main branch and one for devel
-branch.  The run.sh script will just fail back to bash if you dont supply
-a secrets.sh file in the same folder as the repo.
+See [Configuration](docs/CONFIGURATION.md) for all supported variables.
 
-When you first run this you need to boot signal-cli in normal mode in order
-to link it to your account.  You do that by having it generate a qr code
-that you scan with your phone.  See the signalbot documentation.  tldr:
+## Signal linking
+
+When you first run this, start signal-cli and link it to your account by scanning a QR code with your phone. With the REST API exposed locally, the QR-code endpoint is typically:
+
+```text
 http://localhost:8181/v1/qrcodelink?device_name=local
-
-
-Manually running signal-cli from command line.  Be sure to stop the instance
-first:
-
-```
-docker run --env "MODE=json-rpc" --env "PORT=8181" --env "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" --env "GIN_MODE=release" --env "BUILD_VERSION=0.90" --env "SIGNAL_CLI_CONFIG_DIR=/home/.local/share/signal-cli" --env "SIGNAL_CLI_UID=1000" --env "SIGNAL_CLI_GID=1000" --entrypoint "/entrypoint.sh" --volume "/share/CACHEDEV1_DATA/Container/container-station-data/lib/docker/volumes/app-1_signal-cli-data/_data:/home/.local/share/signal-cli"  bbernhard/signal-cli-rest-api:latest
 ```
 
-This was generated with:
+See [Operations](docs/OPERATIONS.md) for more deployment details.
 
-```
-container_id="signal-cli"
-docker inspect $container_id | jq -r '
-  .[] | 
-  "docker run " +
-  (if .Config.Env then (.Config.Env | map("--env \"" + . + "\"") | join(" ")) else "" end) + " " +
-  (if .Config.Entrypoint then "--entrypoint \"" + (.Config.Entrypoint | join(" ")) + "\" " else "" end) +
-  (if .Mounts then (.Mounts | map("--volume \"" + .Source + ":" + .Destination + "\"") | join(" ")) else "" end) + " " +
-  (if .Config.Cmd then (.Config.Cmd | join(" ")) else "" end) +
-  " " + .Config.Image
-'
+## Development
+
+Create a Python environment, install dependencies, and run tests:
+
+```bash
+pip install -r requirements.txt
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
+Some handlers require system packages, especially `ffmpeg`. Docker deployments install packages from `pkglist`.
 
-# Development
+## Manual signal-cli reference
 
-You can develop in windows, linux, wsl, and mac all relatively easily.
+If you need to reproduce a running `signal-cli` container manually, stop the existing instance first and adapt this example to your local volume paths:
 
-For Windows I'd suggest using miniconda.
-
-Running the tests on your own windows or linux box is pretty easy.
-
-If on windows just install miniconda, make a new environment, `conda install python==3` and then run `pip3 install -r requirements.txt`.
-
-TODO: we should really match the version of python on the real system... which i just realized we dont control
-
-Then you can run all the tests with `python -m unittest discover -s tests -p "test_*.py"`
-
-You can also do it in WSL 1 or 2.
-
-Some handlers might also require apt-get packages.  i.e. ffmpeg.  You can get 
-ffmpeg in miniconda (i.e. conda install ffmpeg) or wsl (via apt-get or whatever).
-
-
-
+```bash
+docker run --env "MODE=json-rpc" --env "PORT=8181" --env "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" --env "GIN_MODE=release" --env "BUILD_VERSION=0.90" --env "SIGNAL_CLI_CONFIG_DIR=/home/.local/share/signal-cli" --env "SIGNAL_CLI_UID=1000" --env "SIGNAL_CLI_GID=1000" --entrypoint "/entrypoint.sh" --volume "/share/CACHEDEV1_DATA/Container/container-station-data/lib/docker/volumes/app-1_signal-cli-data/_data:/home/.local/share/signal-cli" bbernhard/signal-cli-rest-api:latest
+```
