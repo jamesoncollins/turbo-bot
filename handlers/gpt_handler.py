@@ -2,6 +2,7 @@
 from handlers.hashtag_handler import HashtagHandler
 import os
 import json
+import re
 from openai import OpenAI
 import importlib.util
 import warnings
@@ -20,6 +21,95 @@ TOOL_DIR = os.path.join(os.path.dirname(__file__), "..", "tool_functions")
 HISTORY_DIR = "conversation_histories"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 MAX_HISTORY_LENGTH = 50
+
+WEB_SEARCH_TOOL = {"type": "web_search", "search_context_size": "high"}
+WEB_SEARCH_TOOL_CHOICE = {
+    "type": "allowed_tools",
+    "mode": "required",
+    "tools": [{"type": "web_search"}],
+}
+WEB_SEARCH_GUIDANCE = (
+    "You are a helpful chatbot for signal groups. Single-shot only: answer in one reply "
+    "and do not ask follow-up questions. If details are missing, make reasonable "
+    "assumptions and state them briefly. Be concise and direct; use bullet points only "
+    "when they improve clarity. Never invent numbers, dates, or factual data. If tool "
+    "inputs are missing, do NOT call function tools; respond with plain text instead. "
+    "When calling function tools, always include all required arguments per the tool "
+    "schema; never call a function tool with empty arguments. Web-search bias: for any "
+    "request about specific facts, named entities, events, products, prices, schedules, "
+    "laws, recommendations, health, finance, technical documentation, or anything that "
+    "might have changed recently, prefer web_search before answering even if you think "
+    "you already know the answer. You MUST use web_search first for time-sensitive or "
+    "current information (e.g., today, latest, news, weather, prices, schedules, scores, "
+    "versions, availability), and base the answer only on returned sources. If "
+    "web_search does not return relevant results, say you could not find the data instead "
+    "of guessing. Use internal knowledge without web_search only for clearly timeless, "
+    "creative, personal, or purely conversational requests. If sources are provided, "
+    "incorporate them in the answer when relevant."
+)
+WEB_SEARCH_FORCE_TERMS = (
+    "latest",
+    "current",
+    "currently",
+    "today",
+    "tonight",
+    "tomorrow",
+    "yesterday",
+    "this week",
+    "this month",
+    "this year",
+    "recent",
+    "recently",
+    "news",
+    "headline",
+    "update",
+    "weather",
+    "forecast",
+    "price",
+    "prices",
+    "cost",
+    "stock",
+    "ticker",
+    "market",
+    "exchange rate",
+    "schedule",
+    "score",
+    "standings",
+    "available",
+    "availability",
+    "version",
+    "release",
+    "changelog",
+    "law",
+    "legal",
+    "regulation",
+    "policy",
+    "recommend",
+    "best",
+    "review",
+    "compare",
+    "restaurant",
+    "travel",
+    "flight",
+    "hotel",
+    "election",
+    "president",
+    "ceo",
+    "who won",
+    "when is",
+    "where is",
+    "how much",
+)
+WEB_SEARCH_FORCE_PREFIXES = (
+    "who is ",
+    "who are ",
+    "what is the latest",
+    "what are the latest",
+    "what happened",
+    "where can i",
+    "where should i",
+    "should i buy",
+)
 
 
 class GptHandler(HashtagHandler):
@@ -220,6 +310,42 @@ def get_used_tools(response):
     return unique_tools
 
 
+def should_force_web_search(user_input: str) -> bool:
+    """Return True when the first model turn should be required to search the web."""
+    if not user_input:
+        return False
+
+    normalized = " ".join(user_input.lower().split())
+    if "http://" in normalized or "https://" in normalized:
+        return True
+
+    if any(normalized.startswith(prefix) for prefix in WEB_SEARCH_FORCE_PREFIXES):
+        return True
+
+    if any(re.search(rf"\b{re.escape(term)}\b", normalized) for term in WEB_SEARCH_FORCE_TERMS):
+        return True
+
+    # Years and date-like prompts are often asking for facts that may be stale in model memory.
+    if any(str(year) in normalized for year in range(2024, 2031)):
+        return True
+
+    return False
+
+
+def build_response_create_kwargs(model, tools, input_data, force_web_search=False, previous_response_id=None):
+    kwargs = {
+        "model": model,
+        "tools": tools,
+        "input": input_data,
+        "include": ["web_search_call.action.sources"],
+    }
+    if previous_response_id is not None:
+        kwargs["previous_response_id"] = previous_response_id
+    if force_web_search:
+        kwargs["tool_choice"] = WEB_SEARCH_TOOL_CHOICE
+    return kwargs
+
+
 def submit_gpt(user_input, session_key=None, model=DEFAULT_MODEL):
     json_session = []
 
@@ -227,19 +353,7 @@ def submit_gpt(user_input, session_key=None, model=DEFAULT_MODEL):
         json_session.append(
             {
                 "role": "system",
-                "content": (
-                    "You are a helpful chatbot for signal groups. Single-shot only: answer in one reply "
-                    "and do not ask follow-up questions. If details are missing, make reasonable "
-                    "assumptions and state them briefly. Be concise and direct; use bullet points only "
-                    "when they improve clarity. Never invent numbers, dates, or factual data. If tool "
-                    "inputs are missing, do NOT call tools; respond with plain text instead. When calling "
-                    "tools, always include all required arguments per the tool schema; never call a tool "
-                    "with empty arguments. If the user asks for specific data or time-sensitive "
-                    "information (e.g., weather, prices, schedules), you MUST use web_search first and "
-                    "base the answer only on sources returned. If web_search does not return relevant "
-                    "results, say you could not find the data instead of guessing. If sources are provided, "
-                    "incorporate them in the answer when relevant."
-                ),
+                "content": WEB_SEARCH_GUIDANCE,
             }
         )
 
@@ -247,14 +361,17 @@ def submit_gpt(user_input, session_key=None, model=DEFAULT_MODEL):
     formatted_messages = [{"role": msg["role"], "content": msg["content"]} for msg in json_session]
 
     function_tools, function_tool_fns = load_function_tools()
-    tools = [{"type": "web_search"}] + function_tools
+    tools = [WEB_SEARCH_TOOL] + function_tools
+    force_web_search = should_force_web_search(user_input)
 
     try:
         response = client.responses.create(
-            model=model,
-            tools=tools,
-            input=formatted_messages,
-            include=["web_search_call.action.sources"],
+            **build_response_create_kwargs(
+                model=model,
+                tools=tools,
+                input_data=formatted_messages,
+                force_web_search=force_web_search,
+            )
         )
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -287,11 +404,12 @@ def submit_gpt(user_input, session_key=None, model=DEFAULT_MODEL):
             break
 
         response = client.responses.create(
-            model=model,
-            tools=tools,
-            previous_response_id=response.id,
-            input=tool_outputs,
-            include=["web_search_call.action.sources"],
+            **build_response_create_kwargs(
+                model=model,
+                tools=tools,
+                previous_response_id=response.id,
+                input_data=tool_outputs,
+            )
         )
 
     assistant_text = response.output_text
@@ -315,6 +433,7 @@ def submit_gpt(user_input, session_key=None, model=DEFAULT_MODEL):
         f"Session Key: {model_details['session_key']}\n"
         f"Token Usage: {model_details['usage']}\n"
         f"Tools Used: {tools_used_unique}\n"
+        f"Web Search Forced: {force_web_search}\n"
         f"Function Calls Executed: {function_tool_calls}\n"
         f"Response Steps: {response_steps}\n"
         f"Tool Loop Truncated: {tool_loop_truncated}\n"
