@@ -36,7 +36,11 @@ class RunTest(TurboTestCase):
         receive_mock.define(["#"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual( LOGMSG in send_mock.call_args_list[0].args[1] , True)
+        response = send_mock.call_args_list[0].args[1]
+        self.assertEqual( LOGMSG in response , True)
+        self.assertEqual( "Machine:" in response , True)
+        self.assertEqual( "Hostname:" in response , True)
+        self.assertEqual( "OS:" in response , True)
         
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)

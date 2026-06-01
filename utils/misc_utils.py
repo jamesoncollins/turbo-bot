@@ -4,6 +4,9 @@ import time
 import base64
 import hashlib
 import json
+import platform
+import shutil
+import socket
 from cryptography.fernet import Fernet
 import git
 from datetime import datetime
@@ -124,6 +127,73 @@ def parse_env_var(env_var, delimiter=";"):
     else:
         return [value]  # Single value as a list
     
+def _format_bytes(num_bytes):
+    """Return a human-readable byte count."""
+    units = ["B", "KB", "MB", "GB", "TB"]
+    value = float(num_bytes)
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            return f"{value:.1f} {unit}"
+        value /= 1024
+
+
+def _get_memory_info():
+    """Return Linux memory information from /proc/meminfo when available."""
+    meminfo_path = "/proc/meminfo"
+    if not os.path.exists(meminfo_path):
+        return None
+
+    meminfo = {}
+    with open(meminfo_path, "r") as file:
+        for line in file:
+            key, value = line.split(":", 1)
+            meminfo[key] = int(value.strip().split()[0]) * 1024
+
+    total = meminfo.get("MemTotal")
+    available = meminfo.get("MemAvailable")
+    if total is None or available is None:
+        return None
+
+    used = total - available
+    return f"{_format_bytes(used)} used / {_format_bytes(total)} total"
+
+
+def get_machine_info():
+    """
+    Retrieves basic information about the machine running the bot.
+
+    Returns:
+        str: A formatted string containing hostname, OS, Python version, CPU count,
+             load average, memory, and disk usage information.
+    """
+    hostname = socket.gethostname()
+    os_info = platform.platform()
+    python_version = platform.python_version()
+    processor = platform.processor() or platform.machine() or "Unknown"
+    cpu_count = os.cpu_count() or "Unknown"
+    load_average = "Unavailable"
+    if hasattr(os, "getloadavg"):
+        load_average = ", ".join(f"{load:.2f}" for load in os.getloadavg())
+
+    memory_info = _get_memory_info() or "Unavailable"
+    disk_usage = shutil.disk_usage(os.getcwd())
+    disk_info = (
+        f"{_format_bytes(disk_usage.used)} used / "
+        f"{_format_bytes(disk_usage.total)} total"
+    )
+
+    return (
+        f"Machine:\n"
+        f"Hostname: {hostname}\n"
+        f"OS: {os_info}\n"
+        f"Python: {python_version}\n"
+        f"Processor: {processor}\n"
+        f"CPU Count: {cpu_count}\n"
+        f"Load Average: {load_average}\n"
+        f"Memory: {memory_info}\n"
+        f"Disk: {disk_info}"
+    )
+
 def get_git_info():
     """
     Retrieves the current branch name, commit ID, timestamp, and committer name

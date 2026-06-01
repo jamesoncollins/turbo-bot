@@ -87,7 +87,9 @@ async def reply(
 class TurboBotCommand(Command):
     async def handle(self, c: Context):
         
-        raw_message_json = json.loads(c.message.raw_message)
+        raw_message_json = c.message.raw_message
+        if not isinstance(raw_message_json, dict):
+            raw_message_json = json.loads(raw_message_json)
 
         # this will go away once signalbot is fixed
         # Parse environment variables
@@ -184,9 +186,11 @@ class TurboBotCommand(Command):
         elif msg == "#":
             print("is hash")
             git_info = get_git_info()
-            str = f"Uptime: {(time.time() - start_time)} seconds\n"
-            str += git_info
-            await c.reply(  LOGMSG + "I am here.\n" + str)            
+            machine_info = get_machine_info()
+            status_message = f"Uptime: {(time.time() - start_time)} seconds\n"
+            status_message += git_info + "\n"
+            status_message += machine_info
+            await c.reply(  LOGMSG + "I am here.\n" + status_message)            
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")
