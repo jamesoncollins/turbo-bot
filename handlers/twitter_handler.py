@@ -1,6 +1,7 @@
 # handlers/twitter_handler.py
 import yt_dlp
 import os
+import shutil
 from handlers.base_handler import BaseHandler
 from _ast import Try
 from utils.misc_utils import *
@@ -14,15 +15,39 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         self.filenames.append(information["filepath"])
         return [], information
 
-class TwitterHandler(BaseHandler):
+
+def get_ydl_opts(extra_opts=None):
+    opts = {
+
+    if shutil.which('node'):
+        opts['js_runtimes'] = {'node': {}}
+
+    if extra_opts:
+        opts.update(extra_opts)
+    return opts
+
+class TwitterHandler(BaseHandler):
+    KNOWN_YT_DLP_DOMAINS = [
+        "bsky.app",
+        "tiktok.com",
+        "vt.tiktok.com",
+        "twitter.com",
+        "x.com",
+        "youtube.com",
+        "youtu.be",
+    ]
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
         if not url:
             return False
-        ydl = yt_dlp.YoutubeDL({'quiet': True, 'playlistend': 1  })
+
+        if self.is_url_in_domains(url, self.KNOWN_YT_DLP_DOMAINS):
+            return True
+
+        ydl = yt_dlp.YoutubeDL(get_ydl_opts())
         try:
-            info = ydl.extract_info(url, download=False)
+            ydl.extract_info(url, download=False)
             return True
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -41,7 +66,7 @@ class TwitterHandler(BaseHandler):
     @staticmethod
     def get_name() -> str:
         return "yt_dlp Handler"
-    
+
 def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video"):
     """
     Downloads the best quality video below the specified file size limit.
@@ -51,7 +76,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     :param suggested_filename: Suggested filename for the downloaded video (without extension)
     :return: Actual filename of the downloaded video
     """
-    
+
     class FilesizeLimitError(Exception):
         pass
 
@@ -67,24 +92,17 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             raise FilesizeLimitError("File size exceeds limit!")
 
     # try and delete the filename we're gonna use
-    test = os.listdir("./")        
+    test = os.listdir("./")
     for item in test:
         if item.startswith(suggested_filename):
-            os.remove(os.path.join("./", item)) 
-            
-    
+            os.remove(os.path.join("./", item))
+
+
     # Get available formats
-    base_ydl_opts = {
-        'quiet': True,
-        'playlistend': 1,
-        'js_runtimes': {'py_mini_racer': {}},
-        'extractor_args': {'youtube': {'player_client': ['android']}},
-    }
-    ydl = yt_dlp.YoutubeDL(base_ydl_opts)
-    info = ydl.extract_info(url, download=False)
+    base_ydl_opts = get_ydl_opts()
 
     formats = info.get("formats", [])
-    
+
     # Find the largest format within the size limit
     selected_format = None
     max_filesize = 0
@@ -92,7 +110,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
         filesize = fmt.get("filesize", 0)
         has_video = fmt.get("vcodec") != "none"
         has_audio = fmt.get("acodec") != "none"
-        
+
         if filesize and has_video and has_audio and filesize <= max_filesize_mb * 1024 * 1024:
             if filesize > max_filesize:
                 max_filesize = filesize
@@ -101,37 +119,38 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
 
     if selected_format:
         print(f"Found a format within size limit ({max_filesize_mb} MB). Downloading...")
-        ydl_opts = {
-            'format': selected_format,
-            'progress_hooks': [progress_hook],
-            'outtmpl': f'{suggested_filename}.%(ext)s',
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': 'mp4',
-            }],
-            'match_filter': filesize_limiter,
-            'max_filesize': '1.25G',
-            'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
-            'js_runtimes': base_ydl_opts['js_runtimes'],
-            'extractor_args': base_ydl_opts['extractor_args'],
-        }
-    else:
-        print("No suitable format found. Downloading best quality and compressing if needed.")
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'progress_hooks': [progress_hook],
-            'outtmpl': f'{suggested_filename}.%(ext)s',
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': 'mp4',
-            }],
-            'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
-            'js_runtimes': base_ydl_opts['js_runtimes'],
-            'extractor_args': base_ydl_opts['extractor_args'],
-        }
+        ydl_opts = get_ydl_opts({
+        })
+        ydl_opts = get_ydl_opts({
+        })
 
 
     try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            meta = ydl.extract_info(url, download=True)
+
+            try:
+                ext = meta['ext']
+            except:
+                try:
+                    ext = meta['entries'][0]['ext']
+                except:
+                    raise ValueError("cant get filename")
+    except FilesizeLimitError as e:
+        raise ValueError(f"error: {e}")
+    except Exception as e:
+        raise ValueError(f"error: {e}")
+
+    actual_filename = f"{suggested_filename}.{ext}"
+    print(f"Video file is: {actual_filename}")
+
+    os.rename(actual_filename, actual_filename+".in")
+    output_fname = convert_to_mp4(actual_filename+".in", actual_filename, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
+    os.rename(output_fname, actual_filename)
+
+    return actual_filename
+
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             meta = ydl.extract_info(url, download=True)            
            

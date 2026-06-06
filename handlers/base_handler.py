@@ -25,21 +25,21 @@ class BaseHandler:
             bool: True if the handler can process the input, False otherwise.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-    
+
     def process_message(self, msg, attachments):
         """Process a string and attachments.
-        
+
         Args:
             input_str (str): The main input string.
             attachments (list): A list of Base64-encoded file strings.
-        
+
         Returns:
             dict: A dictionary containing processed message and attachments.
         """
         # Generate the processed message and attachments
         processed_message = self.get_message()
         processed_attachments = self.get_attachments()
-        
+
         return {
             "message": processed_message,
             "attachments": processed_attachments,
@@ -93,27 +93,35 @@ class BaseHandler:
             str: The first URL found, or an empty string if none exists.
         """
         match = re.search(r"https?://\S+", input_str)
-        return match.group(0) if match else ""
+        if not match:
+            return ""
 
-    @staticmethod    
+        url = match.group(0)
+
+        # Signal messages often include a URL followed by sentence
+        # punctuation or a closing delimiter, e.g. ``https://x.com/...).``.
+        # Leaving those characters attached makes yt-dlp see a different URL.
+        return url.rstrip(".,;:!?)]}>")
+
+    @staticmethod
     def is_url_in_domains(url: str, domains: list) -> bool:
         """
         Checks if a URL belongs to any of the specified domains or their subdomains.
-    
+
         Args:
             url (str): The URL to check.
             domains (list): A list of allowed domains.
-    
+
         Returns:
             bool: True if the URL is in the list of domains or their subdomains, False otherwise.
         """
         # Ensure the URL has a scheme; default to 'http://'
         if not urlparse(url).scheme:
             url = f"http://{url}"
-    
+
         parsed_url = urlparse(url)
         domain = parsed_url.netloc.split(':')[0]  # Exclude port if present
-    
+
         # Check if the domain or its subdomains belong to the allowed domains
         for allowed_domain in domains:
             if domain == allowed_domain or domain.endswith(f".{allowed_domain}"):

@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip git ffmpeg 
+    python3 python3-pip git ffmpeg nodejs
 
 # Download the requirements.txt from GitHub
 RUN apt-get update && apt-get install -y curl && \
