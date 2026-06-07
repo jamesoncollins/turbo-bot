@@ -11,3 +11,6 @@ __pycache__
 *.json*
 *.jpg
 /downloaded_video.mp4.in
+/.cache/
+/.conda/
+/Miniforge3-Linux-x86_64.sh
