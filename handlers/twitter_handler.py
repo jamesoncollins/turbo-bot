@@ -15,22 +15,38 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         return [], information
 
 class TwitterHandler(BaseHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._probe_url = None
+        self._probe_info = None
+
+    def _probe_download_info(self, url):
+        if self._probe_url == url and self._probe_info is not None:
+            return self._probe_info
+
+        ydl = yt_dlp.YoutubeDL(_base_ydl_opts())
+        info = ydl.extract_info(url, download=False)
+        self._probe_url = url
+        self._probe_info = info
+        return info
 
     def can_handle(self) -> bool:
         url = self.extract_url(self.input_str)
         if not url:
             return False
-        ydl = yt_dlp.YoutubeDL({'quiet': True, 'playlistend': 1  })
+
         try:
-            info = ydl.extract_info(url, download=False)
+            self._probe_download_info(url)
             return True
-        except Exception as e:
-            print(f"An error occurred: {e}")
+        except Exception:
+            self._probe_url = None
+            self._probe_info = None
             return False
 
     def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
-        video_content = download_video(url)
+        info = self._probe_download_info(url)
+        video_content = download_video(url, info=info)
         if video_content:
             return {
                 "message": "Downloaded video content using yt_dlp.",
@@ -95,7 +111,16 @@ def _pick_best_download_format(formats, max_filesize_mb):
     return best_pair
 
 
-def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video"):
+def _base_ydl_opts():
+    return {
+        'quiet': True,
+        'playlistend': 1,
+        'js_runtimes': {'py_mini_racer': {}},
+        'extractor_args': {'youtube': {'player_client': ['android']}},
+    }
+
+
+def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video", info=None):
     """
     Downloads the best quality video below the specified file size limit.
 
@@ -129,14 +154,10 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             
     
     # Get available formats
-    base_ydl_opts = {
-        'quiet': True,
-        'playlistend': 1,
-        'js_runtimes': {'py_mini_racer': {}},
-        'extractor_args': {'youtube': {'player_client': ['android']}},
-    }
-    ydl = yt_dlp.YoutubeDL(base_ydl_opts)
-    info = ydl.extract_info(url, download=False)
+    base_ydl_opts = _base_ydl_opts()
+    if info is None:
+        ydl = yt_dlp.YoutubeDL(base_ydl_opts)
+        info = ydl.extract_info(url, download=False)
 
     formats = info.get("formats", [])
     selected_format = _pick_best_download_format(formats, max_filesize_mb)
