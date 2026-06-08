@@ -218,6 +218,15 @@ def get_git_info():
         return "Not a Git repository"
 
 
+def get_current_branch_name():
+    """Return the active Git branch name, or None if unavailable."""
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)), search_parent_directories=True)
+        return repo.active_branch.name
+    except (git.InvalidGitRepositoryError, TypeError, ValueError):
+        return None
+
+
 def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_resolution: tuple = (1280, 720)):
     """
     Convert a video file to MP4 format while ensuring it does not exceed a specified file size

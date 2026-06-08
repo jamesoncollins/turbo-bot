@@ -32,6 +32,8 @@ Before dynamic handlers are consulted, `TurboBotCommand.handle` checks a few dir
 - Reddit URLs: direct video download/reply path.
 - `#status`: machine and git status.
 - `#reboot`: exits the bot process so the surrounding launcher can restart it.
+- `#branch`: reports the current Git branch.
+- `#branch <name>`: asks the shell wrapper to fetch, check out, hard-reset to `origin/<name>`, and relaunch the bot process in-place.
 - `#help`: lists help text from all dynamically discovered handlers.
 
 ## Handler discovery
