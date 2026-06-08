@@ -34,7 +34,6 @@ start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
 BRANCH_REQUEST_FILE = os.environ.get("BRANCH_REQUEST_FILE", "/tmp/git_branch_request")
-BRANCH_SWITCH_EXIT_CODE = 42
 BRANCH_COMMAND_PATTERN = re.compile(r"^#branch(?:\s+(.+))?$")
 
 
@@ -227,7 +226,7 @@ class TurboBotCommand(Command):
             print(f"is branch switch to {target_branch}")
             request_branch_switch(target_branch)
             await c.reply(LOGMSG + f"Switching to branch '{target_branch}' and restarting...")
-            sys.exit(BRANCH_SWITCH_EXIT_CODE)
+            return
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
             video_b64 = download_reddit_video_tryall_b64(url)            

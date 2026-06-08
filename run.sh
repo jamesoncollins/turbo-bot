@@ -6,7 +6,6 @@ CHECK_INTERVAL=10                # Time interval to check the repo for updates (
 EXIT_FLAG_FILE="/tmp/exit_flag"  # File used to indicate when the script should exit
 PYTHON_PID_FILE="/tmp/python_pid" # File used to store the Python script's PID
 BRANCH_REQUEST_FILE="${BRANCH_REQUEST_FILE:-/tmp/git_branch_request}"
-BRANCH_SWITCH_EXIT_CODE="${BRANCH_SWITCH_EXIT_CODE:-42}"
 export PYTHONPATH=$(pwd)/signalbot_local/
 
 # Ensure no leftover flag or PID file exists
@@ -28,10 +27,6 @@ run_python_script() {
     echo $! > "$PYTHON_PID_FILE"
     wait $(cat "$PYTHON_PID_FILE")
     EXIT_CODE=$?
-    if [ "$EXIT_CODE" -eq "$BRANCH_SWITCH_EXIT_CODE" ]; then
-        echo "Python script requested a branch switch."
-        return
-    fi
     if [ $EXIT_CODE -ne 143 ]; then
         echo "Python script exited with code $EXIT_CODE. Setting exit flag."
         echo "true" > "$EXIT_FLAG_FILE"
@@ -66,6 +61,14 @@ handle_branch_request() {
     if [ -z "$REQUESTED_BRANCH" ]; then
         echo "Ignoring empty branch switch request."
         return 1
+    fi
+
+    if [ -f "$PYTHON_PID_FILE" ]; then
+        PYTHON_PID=$(cat "$PYTHON_PID_FILE" 2>/dev/null)
+        if [ -n "$PYTHON_PID" ]; then
+            kill "$PYTHON_PID" 2>/dev/null
+            wait "$PYTHON_PID" 2>/dev/null
+        fi
     fi
 
     echo "Switching repo to branch '$REQUESTED_BRANCH'..."

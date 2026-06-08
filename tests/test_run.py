@@ -21,7 +21,6 @@ from signalbot.utils import chat, ChatTestCase, SendMessagesMock, ReceiveMessage
 from run import (
     TurboBotCommand,
     LOGMSG,
-    BRANCH_SWITCH_EXIT_CODE,
     parse_branch_switch_command,
     request_branch_switch,
 )
@@ -98,10 +97,8 @@ class RunTest(TurboTestCase):
             receive_mock.define(["#branch devel"])
 
             with patch("run.BRANCH_REQUEST_FILE", request_file):
-                with self.assertRaises(SystemExit) as exit_context:
-                    await self.run_bot()
+                await self.run_bot()
 
-            self.assertEqual(exit_context.exception.code, BRANCH_SWITCH_EXIT_CODE)
             self.assertEqual(send_mock.call_count, 1)
             self.assertEqual(
                 send_mock.call_args_list[0].args[1],
