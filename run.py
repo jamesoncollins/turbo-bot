@@ -35,6 +35,7 @@ start_time = time.time()
 LOGMSG = "----TURBOBOT----\n"
 BRANCH_REQUEST_FILE = os.environ.get("BRANCH_REQUEST_FILE", "/tmp/git_branch_request")
 BRANCH_COMMAND_PATTERN = re.compile(r"^#branch(?:\s+(.+))?$")
+BRANCH_SWITCH_ENABLED_BRANCH = "devel"
 
 
 def find_group_by_internal_id(data, target_id):
@@ -74,6 +75,10 @@ def parse_branch_switch_command(msg):
 def request_branch_switch(branch_name):
     with open(BRANCH_REQUEST_FILE, "w", encoding="utf-8") as branch_request_file:
         branch_request_file.write(branch_name + "\n")
+
+
+def branch_switching_is_enabled():
+    return os.environ.get("GIT_REPO_BRANCH") == BRANCH_SWITCH_ENABLED_BRANCH
 
 # this is a copy of signalbot's reply function.
 # im going to try and make a version that replies to the other particiapnt in
@@ -212,6 +217,13 @@ class TurboBotCommand(Command):
             print("is ping")
             await c.reply(  LOGMSG + "Pong")
         elif msg.strip().startswith("#branch"):
+            if not branch_switching_is_enabled():
+                await c.reply(
+                    LOGMSG
+                    + f"#branch is only available when GIT_REPO_BRANCH={BRANCH_SWITCH_ENABLED_BRANCH}"
+                )
+                return
+
             try:
                 target_branch = parse_branch_switch_command(msg)
             except ValueError as e:
