@@ -11,6 +11,7 @@ TurboBot is a Python Signal bot that runs against the signal-cli REST API. It ro
 - [Writing handlers](docs/HANDLERS.md): how to add new bot features.
 - [GPT function tools](docs/GPT_TOOLS.md): how to add tools callable by the `#gpt` handler.
 - [Testing](docs/TESTING.md): local test commands, mocks, and integration-test caveats.
+- [Signal API menu](docs/SIGNAL_API_MENU.md): interactive helper for common signal-cli REST API commands.
 - [README migration checklist](docs/README_MIGRATION.md): where the original README content moved and why no setup guidance was dropped.
 
 ## Quick start
