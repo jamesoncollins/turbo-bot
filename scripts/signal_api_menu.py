@@ -20,7 +20,7 @@ DEFAULT_TIMEOUT_SECONDS = 30
 def normalize_base_url(value: str) -> str:
     value = value.strip().rstrip("/")
     if not value:
-        return "http://localhost:8181"
+        return "http://signal-cli:8181"
     if "://" not in value:
         value = f"http://{value}"
     return value.rstrip("/")
@@ -30,7 +30,7 @@ def default_base_url() -> str:
     return normalize_base_url(
         os.environ.get("SIGNAL_API_BASE_URL")
         or os.environ.get("SIGNAL_API_URL")
-        or "http://localhost:8181"
+        or "http://signal-cli:8181"
     )
 
 
@@ -190,7 +190,7 @@ def menu_raw(base_url: str) -> None:
 
 def choose_base_url(current: str) -> str:
     print("\nCommon values:")
-    print("  - http://localhost:8181      (inside signal-cli container or host port mapping)")
+    print("  - http://signal-cli:8181      (inside signal-cli container or host port mapping)")
     print("  - http://signal-cli:8181     (from another Docker Compose service)")
     print("  - $SIGNAL_API_URL / $SIGNAL_API_BASE_URL if set")
     return normalize_base_url(prompt("API base URL", current, required=True))
@@ -237,7 +237,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--base-url",
         default=default_base_url(),
-        help="Signal REST API base URL. Defaults to SIGNAL_API_BASE_URL, SIGNAL_API_URL, or http://localhost:8181.",
+        help="Signal REST API base URL. Defaults to SIGNAL_API_BASE_URL, SIGNAL_API_URL, or http://signal-cli:8181.",
     )
     return parser.parse_args(argv)
 
