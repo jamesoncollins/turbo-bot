@@ -66,6 +66,7 @@ export CONDA_ENVS_PATH
 export CONDA_PKGS_DIRS
 export CONDA_NO_PLUGINS=true
 export CONDA_SOLVER=classic
+export PYTHONNOUSERSITE=1
 export XDG_CACHE_HOME
 mkdir -p "${XDG_CACHE_HOME}"
 

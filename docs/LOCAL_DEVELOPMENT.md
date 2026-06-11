@@ -36,6 +36,8 @@ Use Docker Compose for the deployed multi-container stack and real Signal device
 
 This keeps local development aligned with the same package sources used by the deployed bot.
 
+Always use the Conda-backed scripts for local work in this repo. The scripts set `PYTHONNOUSERSITE=1` so packages from `~/.local` cannot leak into the project environment; install or update Python packages with `scripts/bootstrap_wsl.sh` instead of using the system Python directly.
+
 ## Running the bot locally
 
 Create `secret.txt` from the sample file:
