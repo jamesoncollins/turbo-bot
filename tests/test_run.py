@@ -13,10 +13,19 @@ else:
 import unittest
 from unittest.mock import patch
 import logging
+import os
+import tempfile
 from TurboTestCase import TurboTestCase
 from signalbot import Command, Context, triggered
 from signalbot.utils import chat, ChatTestCase, SendMessagesMock, ReceiveMessagesMock
-from run import TurboBotCommand, LOGMSG
+from run import (
+    TurboBotCommand,
+    LOGMSG,
+    BRANCH_SWITCH_ENABLED_BRANCH,
+    branch_switching_is_enabled,
+    parse_branch_switch_command,
+    request_branch_switch,
+)
 
 class RunTest(TurboTestCase):
     def setUp(self):
@@ -63,6 +72,82 @@ class RunTest(TurboTestCase):
         receive_mock.define(["#gpt.read https://therationalleague.substack.com/p/why-maga-defends-everything-trump"])
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
+
+    def test_parse_branch_switch_command(self):
+        self.assertEqual(parse_branch_switch_command("#branch devel"), "devel")
+        self.assertEqual(parse_branch_switch_command("#branch feature/test-1"), "feature/test-1")
+        self.assertEqual(parse_branch_switch_command(" #branch main "), "main")
+        self.assertIsNone(parse_branch_switch_command("#branch"))
+        self.assertIsNone(parse_branch_switch_command("#"))
+        with self.assertRaises(ValueError):
+            parse_branch_switch_command("#branch ../main")
+
+    def test_request_branch_switch(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request_file = os.path.join(temp_dir, "branch_request.txt")
+            with patch("run.BRANCH_REQUEST_FILE", request_file):
+                request_branch_switch("devel")
+
+            with open(request_file, "r", encoding="utf-8") as branch_request_file:
+                self.assertEqual(branch_request_file.read(), "devel\n")
+
+    def test_branch_switching_is_enabled(self):
+        with patch.dict(os.environ, {"GIT_REPO_BRANCH": "devel"}, clear=False):
+            self.assertTrue(branch_switching_is_enabled())
+        with patch.dict(os.environ, {"GIT_REPO_BRANCH": "main"}, clear=False):
+            self.assertFalse(branch_switching_is_enabled())
+
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_branch_switch_requests_restart(self, receive_mock, send_mock):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request_file = os.path.join(temp_dir, "branch_request.txt")
+            receive_mock.define(["#branch devel"])
+
+            with patch.dict(os.environ, {"GIT_REPO_BRANCH": "devel"}, clear=False):
+                with patch("run.BRANCH_REQUEST_FILE", request_file):
+                    await self.run_bot()
+
+            self.assertEqual(send_mock.call_count, 1)
+            self.assertEqual(
+                send_mock.call_args_list[0].args[1],
+                LOGMSG + "Switching to branch 'devel' and restarting...",
+            )
+            with open(request_file, "r", encoding="utf-8") as branch_request_file:
+                self.assertEqual(branch_request_file.read(), "devel\n")
+
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_branch_switch_rejected_outside_devel(self, receive_mock, send_mock):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request_file = os.path.join(temp_dir, "branch_request.txt")
+            receive_mock.define(["#branch main"])
+
+            with patch.dict(os.environ, {"GIT_REPO_BRANCH": "main"}, clear=False):
+                with patch("run.BRANCH_REQUEST_FILE", request_file):
+                    await self.run_bot()
+
+            self.assertEqual(send_mock.call_count, 1)
+            self.assertEqual(
+                send_mock.call_args_list[0].args[1],
+                LOGMSG + f"#branch is only available when GIT_REPO_BRANCH={BRANCH_SWITCH_ENABLED_BRANCH}",
+            )
+            self.assertFalse(os.path.exists(request_file))
+
+    @patch("run.get_current_branch_name", return_value="devel")
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_branch_without_name_returns_current_branch(self, receive_mock, send_mock, current_branch_mock):
+        receive_mock.define(["#branch"])
+
+        with patch.dict(os.environ, {"GIT_REPO_BRANCH": "devel"}, clear=False):
+            await self.run_bot()
+
+        self.assertEqual(send_mock.call_count, 1)
+        self.assertEqual(
+            send_mock.call_args_list[0].args[1],
+            LOGMSG + "Current branch: devel",
+        )
 
 if __name__ == "__main__":
     unittest.main()

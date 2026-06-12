@@ -64,7 +64,7 @@ export INSTA_PASSWORD="replace-with-your-instagram-password"
 
 - `GIT_REPO_URL`: repository to clone/fetch.
 - `GIT_REPO_PATH`: path inside the container where the repository is stored.
-- `GIT_REPO_BRANCH`: branch to reset to and run.
+- `GIT_REPO_BRANCH`: branch to check out, reset to `origin/<branch>`, and run.
 - `SETUP_SCRIPT_NAME`: bootstrap script name, normally `setup.sh`.
 
 See `docs/OPERATIONS.md` for the full container startup flow.

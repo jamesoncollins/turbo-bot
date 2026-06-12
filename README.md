@@ -6,10 +6,12 @@ TurboBot is a Python Signal bot that runs against the signal-cli REST API. It ro
 
 - [Architecture](docs/ARCHITECTURE.md): runtime flow, dispatch, handler discovery, and important paths.
 - [Configuration](docs/CONFIGURATION.md): required environment variables and `secret.txt` setup.
+- [Local Development](docs/LOCAL_DEVELOPMENT.md): WSL/Codex bootstrap, local run, and mocked test workflow.
 - [Operations](docs/OPERATIONS.md): Docker Compose services, bootstrap flow, auto-updates, and Signal linking.
 - [Writing handlers](docs/HANDLERS.md): how to add new bot features.
 - [GPT function tools](docs/GPT_TOOLS.md): how to add tools callable by the `#gpt` handler.
 - [Testing](docs/TESTING.md): local test commands, mocks, and integration-test caveats.
+- [Signal API menu](docs/SIGNAL_API_MENU.md): interactive helper for common signal-cli REST API commands.
 - [README migration checklist](docs/README_MIGRATION.md): where the original README content moved and why no setup guidance was dropped.
 
 ## Quick start
@@ -45,14 +47,22 @@ See [Operations](docs/OPERATIONS.md) for more deployment details.
 
 ## Development
 
-Create a Python environment, install dependencies, and run tests:
+For WSL/Codex local development, use the checked-in bootstrap scripts so the host environment is built from the same files the containers use:
 
 ```bash
-pip install -r requirements.txt
-python -m unittest discover -s tests -p "test_*.py"
+git submodule update --init --recursive
+scripts/bootstrap_wsl.sh
+scripts/test_local.sh
 ```
 
-Some handlers require system packages, especially `ffmpeg`. Docker deployments install packages from `pkglist`.
+This workflow uses:
+
+- `requirements.txt` for Python dependencies
+- `pkglist` for system packages
+
+See [Local Development](docs/LOCAL_DEVELOPMENT.md) for the full WSL workflow and [Testing](docs/TESTING.md) for test notes.
+
+Some handlers require system packages, especially `ffmpeg`. Docker deployments install packages from `pkglist`, and the WSL bootstrap script installs from the same file.
 
 ## Manual signal-cli reference
 

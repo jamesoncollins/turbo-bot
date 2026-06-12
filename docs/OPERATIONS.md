@@ -34,7 +34,8 @@ The bot containers use a shell command in `docker-compose.yml` to:
 2. Initializes the git repository if needed.
 3. Configures the configured directory as a safe git directory.
 4. Fetches from origin.
-5. Resets hard to `origin/${GIT_REPO_BRANCH}`.
+5. Checks out `GIT_REPO_BRANCH` locally, creating or resetting it against `origin/${GIT_REPO_BRANCH}` as needed.
+6. Resets hard to `origin/${GIT_REPO_BRANCH}`.
 6. Initializes submodules.
 7. Installs Python requirements.
 8. Installs apt packages from `pkglist`.
@@ -57,7 +58,7 @@ If `run.py` exits with a code other than `143`, `run.sh` sets an exit flag and e
 
 ## Operational warnings
 
-- `setup.sh` runs `git reset --hard origin/${GIT_REPO_BRANCH}`. Local uncommitted edits inside the deployed repository can be discarded.
+- `setup.sh` checks out `GIT_REPO_BRANCH` and then runs `git reset --hard origin/${GIT_REPO_BRANCH}`. Local uncommitted edits inside the deployed repository can be discarded, and startup will force the configured branch to be the active checked-out branch.
 - `run.sh` sources `secret.txt` as shell code. Keep permissions tight and never commit real secrets.
 - Media handlers may require `ffmpeg` and working network access.
 - Some handlers depend on third-party services that can rate-limit, change HTML/API behavior, or require credentials.

@@ -45,21 +45,27 @@ These can fail because of network outages, API changes, rate limits, missing cre
 
 ## Required dependencies
 
-Install Python dependencies:
+For WSL/local development, bootstrap from the repo scripts:
 
 ```bash
-pip install -r requirements.txt
+git submodule update --init --recursive
+scripts/bootstrap_wsl.sh
 ```
 
-Development should work on Windows, Linux, WSL, and macOS. On Windows, the original project notes recommend Miniconda: create a new environment, install Python 3, and then run `pip3 install -r requirements.txt`.
+This installs the same dependency sources used by deployment:
 
-Some handlers also require apt/system packages from `pkglist`, especially media tooling such as `ffmpeg`. If you are developing outside Docker, install `ffmpeg` through your platform package manager, Conda, WSL, or similar.
+- Python packages from `requirements.txt`
+- System packages from `pkglist`
+
+The recommended local workflow is WSL with Miniforge. `scripts/bootstrap_wsl.sh` prefers Conda packages for isolation and falls back to `apt` when a package from `pkglist` is not practical to install through Conda.
+
+Some handlers also require system tools such as `ffmpeg`. The bootstrap script installs these from `pkglist`.
 
 ## Troubleshooting
 
 ### Missing `signalbot_local/`
 
-`run.py` and tests try to add `signalbot_local/` to `sys.path` if present. This is optional in many environments, but useful when testing a local copy of the `signalbot` package.
+`signalbot_local/` is a required submodule for this repo's local development flow. If it is empty, run `git submodule update --init --recursive`.
 
 ### Missing environment variables
 
