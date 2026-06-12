@@ -1,6 +1,7 @@
 # handlers/twitter_handler.py
 import yt_dlp
 import os
+import time
 from handlers.base_handler import BaseHandler
 from _ast import Try
 from utils.misc_utils import *
@@ -13,6 +14,9 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
     def run(self, information):
         self.filenames.append(information["filepath"])
         return [], information
+
+STREAM_CLIP_SECONDS = 60
+
 
 class TwitterHandler(BaseHandler):
     def __init__(self, *args, **kwargs):
@@ -46,10 +50,26 @@ class TwitterHandler(BaseHandler):
     def process_message(self, msg, attachments):
         url = self.extract_url(self.input_str)
         info = self._probe_download_info(url)
-        video_content = download_video(url, info=info)
-        if video_content:
+
+        if _is_unavailable_stream(info):
             return {
-                "message": "Downloaded video content using yt_dlp.",
+                "message": "This looks like a stream, but it is not currently available to download.",
+                "attachments": [],
+            }
+
+        is_stream = _is_live_stream(info)
+        video_content = download_video(
+            url,
+            info=None if is_stream else info,
+            stream_clip_seconds=STREAM_CLIP_SECONDS if is_stream else None,
+        )
+        if video_content:
+            if is_stream:
+                message = "Downloaded up to 1 minute from this stream using yt_dlp."
+            else:
+                message = "Downloaded video content using yt_dlp."
+            return {
+                "message": message,
                 "attachments": [BaseHandler.file_to_base64(video_content)],
             }
         return []
@@ -111,6 +131,48 @@ def _pick_best_download_format(formats, max_filesize_mb):
     return best_pair
 
 
+def _live_status(info):
+    return (info or {}).get("live_status")
+
+
+def _is_live_stream(info):
+    live_status = _live_status(info)
+    return bool((info or {}).get("is_live")) or live_status == "is_live"
+
+
+def _is_unavailable_stream(info):
+    live_status = _live_status(info)
+    return live_status in {"is_upcoming", "post_live"}
+
+
+def _stream_tail_download_ranges(seconds):
+    def download_ranges(info_dict, ydl):
+        duration = info_dict.get("duration")
+        if not duration:
+            live_start = (
+                info_dict.get("live_start_time")
+                or info_dict.get("release_timestamp")
+                or info_dict.get("timestamp")
+            )
+            if live_start:
+                duration = max(time.time() - live_start, 0)
+
+        if duration:
+            end_time = max(float(duration), 0)
+            start_time = max(end_time - seconds, 0)
+        else:
+            start_time = 0
+            end_time = seconds
+
+        yield {
+            "start_time": start_time,
+            "end_time": min(end_time, start_time + seconds),
+            "title": f"Last {seconds} seconds of stream",
+        }
+
+    return download_ranges
+
+
 def _base_ydl_opts():
     return {
         'quiet': True,
@@ -120,7 +182,7 @@ def _base_ydl_opts():
     }
 
 
-def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video", info=None):
+def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video", info=None, stream_clip_seconds=None):
     """
     Downloads the best quality video below the specified file size limit.
 
@@ -129,7 +191,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     :param suggested_filename: Suggested filename for the downloaded video (without extension)
     :return: Actual filename of the downloaded video
     """
-    
+
     class FilesizeLimitError(Exception):
         pass
 
@@ -147,20 +209,30 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             raise FilesizeLimitError("File size exceeds limit!")
 
     # try and delete the filename we're gonna use
-    test = os.listdir("./")        
+    test = os.listdir("./")
     for item in test:
         if item.startswith(suggested_filename):
-            os.remove(os.path.join("./", item)) 
-            
-    
+            os.remove(os.path.join("./", item))
+
+
     # Get available formats
     base_ydl_opts = _base_ydl_opts()
+    if stream_clip_seconds:
+        base_ydl_opts['live_from_start'] = True
     if info is None:
         ydl = yt_dlp.YoutubeDL(base_ydl_opts)
         info = ydl.extract_info(url, download=False)
 
     formats = info.get("formats", [])
     selected_format = _pick_best_download_format(formats, max_filesize_mb)
+
+    stream_range_opts = {}
+    if stream_clip_seconds:
+        stream_range_opts = {
+            'download_ranges': _stream_tail_download_ranges(stream_clip_seconds),
+            'force_keyframes_at_cuts': False,
+            'live_from_start': True,
+        }
 
     if selected_format:
         print(f"Found a format within size limit ({max_filesize_mb} MB). Downloading...")
@@ -177,6 +249,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
             'js_runtimes': base_ydl_opts['js_runtimes'],
             'extractor_args': base_ydl_opts['extractor_args'],
+            **stream_range_opts,
         }
     else:
         print("No suitable format found. Downloading best quality and compressing if needed.")
@@ -191,6 +264,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
             'playlistend': 1,                    # helps with twitter/dsky posts that have video in the comments
             'js_runtimes': base_ydl_opts['js_runtimes'],
             'extractor_args': base_ydl_opts['extractor_args'],
+            **stream_range_opts,
         }
 
 
@@ -229,7 +303,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     os.rename(actual_filename, temp_input)
     output_fname = convert_to_mp4(temp_input, actual_filename, max_size_mb=max_filesize_mb, max_resolution=(2000, 2000))
     os.rename(output_fname, actual_filename)
-    
+
     return actual_filename
 
 
