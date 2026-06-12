@@ -1,10 +1,18 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from handlers.twitter_handler import TwitterHandler, _pick_best_download_format
+from handlers.twitter_handler import TwitterHandler, _base_ydl_opts, _pick_best_download_format
 
 
 class TwitterHandlerFormatSelectionTest(unittest.TestCase):
+    def test_youtube_probe_uses_android_vr_client_for_split_formats(self):
+        opts = _base_ydl_opts()
+
+        self.assertEqual(
+            opts["extractor_args"]["youtube"]["player_client"],
+            ["android", "android_vr"],
+        )
+
     def test_prefers_largest_muxed_format_under_limit(self):
         formats = [
             {"format_id": "small", "filesize": 10 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},

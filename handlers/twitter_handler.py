@@ -116,7 +116,7 @@ def _base_ydl_opts():
         'quiet': True,
         'playlistend': 1,
         'js_runtimes': {'py_mini_racer': {}},
-        'extractor_args': {'youtube': {'player_client': ['android']}},
+        'extractor_args': {'youtube': {'player_client': ['android', 'android_vr']}},
     }
 
 
