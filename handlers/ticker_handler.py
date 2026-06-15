@@ -1,5 +1,4 @@
-from datetime import datetime, time as datetime_time, timedelta, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 from handlers.base_handler import BaseHandler
 from utils.misc_utils import *
 import yfinance as yf
@@ -8,9 +7,6 @@ import matplotlib.pyplot as plt
 
 DEFAULT_DURATION = "1y"
 INTRADAY_THRESHOLD_DAYS = 5
-MARKET_TIMEZONE = ZoneInfo("America/New_York")
-EXTENDED_MARKET_OPEN = datetime_time(4, 0)
-EXTENDED_MARKET_CLOSE = datetime_time(20, 0)
 
 
 class TickerHandler(BaseHandler):
@@ -115,43 +111,7 @@ def get_history_options(duration, now=None):
     options = {"start": now - delta, "end": now}
     if delta <= timedelta(days=INTRADAY_THRESHOLD_DAYS):
         options["interval"] = "1h"
-        options["prepost"] = True
     return options
-
-
-def is_intraday_history(history_options):
-    return history_options.get("interval") == "1h"
-
-
-def filter_extended_market_hours(hist):
-    """Keep only pre-market, regular-market, and post-market rows for intraday charts."""
-    if hist.empty:
-        return hist
-
-    eastern_index = hist.index
-    if eastern_index.tz is None:
-        eastern_index = eastern_index.tz_localize(timezone.utc)
-    eastern_index = eastern_index.tz_convert(MARKET_TIMEZONE)
-
-    market_hours_mask = [
-        EXTENDED_MARKET_OPEN <= timestamp.time() <= EXTENDED_MARKET_CLOSE
-        for timestamp in eastern_index
-    ]
-    filtered = hist.loc[market_hours_mask].copy()
-    filtered.index = eastern_index[market_hours_mask]
-    return filtered
-
-
-def get_plot_segments(hist, intraday=False):
-    """Split intraday plots by trading date so lines are not drawn overnight."""
-    if not intraday:
-        return [(hist.index, hist["Normalized"])]
-
-    return [
-        (daily_hist.index, daily_hist["Normalized"])
-        for _, daily_hist in hist.groupby(hist.index.date)
-        if not daily_hist.empty
-    ]
 
 
 def format_price(value):
@@ -177,7 +137,6 @@ def plot_stock_data_base64(ticker_symbols):
         tickers_to_plot.insert(0, ("SPY", longest_duration))
 
     history_options = get_history_options(longest_duration)
-    intraday = is_intraday_history(history_options)
 
     plotted_any_series = False
 
@@ -185,8 +144,6 @@ def plot_stock_data_base64(ticker_symbols):
         try:
             stock = yf.Ticker(ticker_symbol)
             hist = stock.history(**history_options)
-            if intraday:
-                hist = filter_extended_market_hours(hist)
             if hist.empty:
                 print(f"No historical data found for {ticker_symbol}")
                 continue
@@ -195,17 +152,14 @@ def plot_stock_data_base64(ticker_symbols):
             start_price = format_price(hist["Close"].iloc[0])
             end_price = format_price(hist["Close"].iloc[-1])
             label = f"{ticker_symbol.upper()} ({start_price} → {end_price})"
-            label_pending = True
-            for x_values, y_values in get_plot_segments(hist, intraday=intraday):
-                plt.plot(x_values, y_values, label=label if label_pending else None)
-                label_pending = False
-                plotted_any_series = True
+            plt.plot(hist.index, hist["Normalized"], label=label)
+            plotted_any_series = True
         except Exception as e:
             print(f"An error occurred while fetching data for {ticker_symbol}: {e}")
 
     plt.xlabel("Date")
     plt.ylabel("Normalized Price (%)")
-    interval_description = "hourly" if intraday else "daily"
+    interval_description = "hourly" if history_options.get("interval") == "1h" else "daily"
     plt.title(f"Historical Prices (Normalized, {longest_duration}, {interval_description})")
     if plotted_any_series:
         plt.legend()
