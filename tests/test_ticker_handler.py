@@ -2,11 +2,13 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from handlers.ticker_handler import (
     DEFAULT_DURATION,
     duration_to_timedelta,
     extract_ticker_symbols,
+    clean_price_history,
     get_history_options,
     plot_stock_data_base64,
 )
@@ -68,3 +70,36 @@ def test_plot_uses_longest_requested_range_and_prices_in_legend(mock_ticker, moc
     assert mock_plt.text.call_count == 0
     labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
     assert labels == ["SPY ($10.00 → $12.00)", "AMD ($10.00 → $12.00)"]
+
+
+def test_clean_price_history_removes_zero_and_missing_close_values():
+    hist = pd.DataFrame(
+        {"Close": [10.0, None, 0.0, 12.0]},
+        index=pd.date_range("2026-06-01", periods=4, tz="UTC"),
+    )
+
+    cleaned = clean_price_history(hist)
+
+    assert cleaned["Close"].tolist() == [10.0, 12.0]
+
+
+@patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
+@patch("handlers.ticker_handler.plt")
+@patch("handlers.ticker_handler.yf.Ticker")
+def test_plot_ignores_zero_close_rows_when_labeling_and_normalizing(mock_ticker, mock_plt, mock_file_to_base64):
+    hist = pd.DataFrame(
+        {"Close": [10.0, 11.0, 0.0]},
+        index=pd.date_range("2026-06-01", periods=3, tz="UTC"),
+    )
+    ticker_instance = MagicMock()
+    ticker_instance.history.return_value = hist
+    mock_ticker.return_value = ticker_instance
+
+    result = plot_stock_data_base64([("SPCM", "10d")])
+
+    assert result == "encoded-plot"
+    labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
+    assert labels == ["SPY ($10.00 → $11.00)", "SPCM ($10.00 → $11.00)"]
+    plotted_values = [call.args[1].tolist() for call in mock_plt.plot.call_args_list]
+    assert plotted_values[0] == pytest.approx([100.0, 110.0])
+    assert plotted_values[1] == pytest.approx([100.0, 110.0])
