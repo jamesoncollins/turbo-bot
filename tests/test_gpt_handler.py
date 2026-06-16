@@ -1,9 +1,13 @@
 import unittest
+from unittest.mock import patch
 
 from handlers.gpt_handler import (
+    DEFAULT_IMAGE_MODEL,
     WEB_SEARCH_TOOL,
     WEB_SEARCH_TOOL_CHOICE,
+    GptHandler,
     build_response_create_kwargs,
+    is_image_model,
     should_force_web_search,
 )
 
@@ -53,6 +57,24 @@ class GptHandlerWebSearchTest(unittest.TestCase):
         )
 
         self.assertNotIn("tool_choice", kwargs)
+
+
+class GptHandlerImageModelTest(unittest.TestCase):
+    def test_default_image_model_uses_current_accessible_gpt_image_model(self):
+        self.assertEqual(DEFAULT_IMAGE_MODEL, "gpt-image-1-mini")
+        self.assertTrue(is_image_model(DEFAULT_IMAGE_MODEL))
+
+    def test_image_alias_resolves_to_default_image_model(self):
+        handler = GptHandler("#gpt.image draw a tiny robot")
+        self.assertTrue(handler.can_handle())
+
+        with patch("handlers.gpt_handler.submit_gpt_image_gen") as submit_mock:
+            submit_mock.return_value = {"message": "ok", "attachments": []}
+
+            response = handler.process_message("#gpt.image draw a tiny robot", None)
+
+        self.assertEqual(response, {"message": "ok", "attachments": []})
+        submit_mock.assert_called_once_with("draw a tiny robot", None, DEFAULT_IMAGE_MODEL)
 
 
 if __name__ == "__main__":
