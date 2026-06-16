@@ -14,7 +14,7 @@ if key == "":
 client = OpenAI(api_key=key)
 
 DEFAULT_MODEL = "gpt-4.1"
-DEFAULT_IMAGE_MODEL = "dall-e-3"
+DEFAULT_IMAGE_MODEL = "gpt-image-1-mini"
 IMAGE_MODEL_PREFIXES = ("chatgpt-image-", "gpt-image-", "dall-e-")
 TOOL_DIR = os.path.join(os.path.dirname(__file__), "..", "tool_functions")
 
@@ -144,7 +144,7 @@ class GptHandler(HashtagHandler):
     @staticmethod
     def get_help_text() -> str:
         retval = "The first substring specifies the model being used, e.g., #gpt.gpt-4o-mini.\n"
-        retval += "Use #gpt.image to generate an image with the default image model.\n"
+        retval += f"Use #gpt.image to generate an image with the default image model ({DEFAULT_IMAGE_MODEL}).\n"
         retval += "Image model prefixes: chatgpt-image-*, gpt-image-*, dall-e-*.\n"
         retval += "Available models are:    \n"
 
