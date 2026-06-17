@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 DEFAULT_DURATION = "1y"
 INTRADAY_THRESHOLD_DAYS = 5
+MAX_REASONABLE_DAILY_PRICE_RATIO = 10
 
 
 class TickerHandler(BaseHandler):
@@ -108,7 +109,7 @@ def get_history_options(duration, now=None):
     """Build yfinance history options for arbitrary durations."""
     now = now or datetime.now(timezone.utc)
     delta = duration_to_timedelta(duration)
-    options = {"start": now - delta, "end": now}
+    options = {"start": now - delta, "end": now, "auto_adjust": False}
     if delta <= timedelta(days=INTRADAY_THRESHOLD_DAYS):
         options["interval"] = "1h"
     return options
@@ -116,6 +117,32 @@ def get_history_options(duration, now=None):
 
 def format_price(value):
     return f"${value:.2f}"
+
+
+def clean_price_history(hist):
+    """Return rows with usable positive close prices for plotting.
+
+    Some newly launched or ticker-reused funds can include stale predecessor
+    history in Yahoo data. If there is an extreme price discontinuity, keep the
+    most recent continuous segment so normalization is based on the current
+    instrument rather than legacy rows.
+    """
+    if hist.empty or "Close" not in hist:
+        return hist
+
+    cleaned = hist[hist["Close"].notna() & (hist["Close"] > 0)].copy()
+    if len(cleaned) < 2:
+        return cleaned
+
+    price_ratios = cleaned["Close"] / cleaned["Close"].shift(1)
+    discontinuities = price_ratios[
+        (price_ratios > MAX_REASONABLE_DAILY_PRICE_RATIO)
+        | (price_ratios < 1 / MAX_REASONABLE_DAILY_PRICE_RATIO)
+    ].index
+    if len(discontinuities) > 0:
+        cleaned = cleaned.loc[discontinuities[-1]:]
+
+    return cleaned
 
 
 def plot_stock_data_base64(ticker_symbols):
@@ -144,8 +171,9 @@ def plot_stock_data_base64(ticker_symbols):
         try:
             stock = yf.Ticker(ticker_symbol)
             hist = stock.history(**history_options)
+            hist = clean_price_history(hist)
             if hist.empty:
-                print(f"No historical data found for {ticker_symbol}")
+                print(f"No usable historical close prices found for {ticker_symbol}")
                 continue
 
             hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
