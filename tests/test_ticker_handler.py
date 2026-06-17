@@ -37,6 +37,7 @@ def test_get_history_options_uses_requested_range_and_hourly_intraday():
     assert hourly_options == {
         "start": now - timedelta(days=4),
         "end": now,
+        "auto_adjust": False,
         "interval": "1h",
     }
 
@@ -44,6 +45,7 @@ def test_get_history_options_uses_requested_range_and_hourly_intraday():
     assert daily_options == {
         "start": now - timedelta(days=10),
         "end": now,
+        "auto_adjust": False,
     }
 
 
@@ -63,7 +65,8 @@ def test_plot_uses_longest_requested_range_and_prices_in_legend(mock_ticker, moc
 
     assert result == "encoded-plot"
     history_kwargs = ticker_instance.history.call_args.kwargs
-    assert set(history_kwargs) == {"start", "end"}
+    assert set(history_kwargs) == {"start", "end", "auto_adjust"}
+    assert history_kwargs["auto_adjust"] is False
     actual_range = history_kwargs["end"] - history_kwargs["start"]
     assert timedelta(days=9, hours=23, minutes=59) < actual_range < timedelta(days=10, minutes=1)
     assert mock_ticker.call_count == 2

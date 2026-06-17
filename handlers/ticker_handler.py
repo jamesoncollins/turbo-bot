@@ -108,7 +108,7 @@ def get_history_options(duration, now=None):
     """Build yfinance history options for arbitrary durations."""
     now = now or datetime.now(timezone.utc)
     delta = duration_to_timedelta(duration)
-    options = {"start": now - delta, "end": now}
+    options = {"start": now - delta, "end": now, "auto_adjust": False}
     if delta <= timedelta(days=INTRADAY_THRESHOLD_DAYS):
         options["interval"] = "1h"
     return options
