@@ -14,8 +14,11 @@ cd ${GIT_REPO_PATH}
 cd ${GIT_REPO_PATH}  
 git config --global --add safe.directory ${GIT_REPO_PATH}  
 
-# Fetch the latest changes and reset to match the remote branch
+# Fetch the latest changes, ensure the configured branch is checked out,
+# and reset it to match the remote branch.
 git fetch origin
+git checkout ${GIT_REPO_BRANCH} 2>/dev/null \
+  || git checkout -B ${GIT_REPO_BRANCH} origin/${GIT_REPO_BRANCH}
 git reset --hard origin/${GIT_REPO_BRANCH}
 
 # Initialize and update Git submodules

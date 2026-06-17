@@ -33,6 +33,9 @@ from datetime import datetime
 start_time = time.time()
 
 LOGMSG = "----TURBOBOT----\n"
+BRANCH_REQUEST_FILE = os.environ.get("BRANCH_REQUEST_FILE", "/tmp/git_branch_request")
+BRANCH_COMMAND_PATTERN = re.compile(r"^#branch(?:\s+(.+))?$")
+BRANCH_SWITCH_ENABLED_BRANCH = "devel"
 
 
 def find_group_by_internal_id(data, target_id):
@@ -41,6 +44,41 @@ def find_group_by_internal_id(data, target_id):
             #return entry['name']
             return entry
     return None
+
+
+def parse_branch_switch_command(msg):
+    if not isinstance(msg, str):
+        return None
+
+    match = BRANCH_COMMAND_PATTERN.fullmatch(msg.strip())
+    if not match:
+        return None
+
+    branch_name = (match.group(1) or "").strip()
+    if not branch_name:
+        return None
+
+    # Accept normal Git branch names while rejecting ref/path tricks.
+    if (
+        branch_name.startswith(("/", "-", "."))
+        or branch_name.endswith(("/", "."))
+        or ".." in branch_name
+        or "@{" in branch_name
+        or branch_name.endswith(".lock")
+        or not re.fullmatch(r"[A-Za-z0-9._/-]+", branch_name)
+    ):
+        raise ValueError(f"Invalid branch name: {branch_name}")
+
+    return branch_name
+
+
+def request_branch_switch(branch_name):
+    with open(BRANCH_REQUEST_FILE, "w", encoding="utf-8") as branch_request_file:
+        branch_request_file.write(branch_name + "\n")
+
+
+def branch_switching_is_enabled():
+    return os.environ.get("GIT_REPO_BRANCH") == BRANCH_SWITCH_ENABLED_BRANCH
 
 # this is a copy of signalbot's reply function.
 # im going to try and make a version that replies to the other particiapnt in
@@ -87,7 +125,9 @@ async def reply(
 class TurboBotCommand(Command):
     async def handle(self, c: Context):
         
-        raw_message_json = json.loads(c.message.raw_message)
+        raw_message_json = c.message.raw_message
+        if not isinstance(raw_message_json, dict):
+            raw_message_json = json.loads(raw_message_json)
 
         # this will go away once signalbot is fixed
         # Parse environment variables
@@ -176,6 +216,29 @@ class TurboBotCommand(Command):
         elif msg == "Ping":
             print("is ping")
             await c.reply(  LOGMSG + "Pong")
+        elif msg.strip().startswith("#branch"):
+            if not branch_switching_is_enabled():
+                await c.reply(
+                    LOGMSG
+                    + f"#branch is only available when GIT_REPO_BRANCH={BRANCH_SWITCH_ENABLED_BRANCH}"
+                )
+                return
+
+            try:
+                target_branch = parse_branch_switch_command(msg)
+            except ValueError as e:
+                await c.reply(LOGMSG + str(e))
+                return
+
+            if target_branch is None:
+                current_branch = get_current_branch_name() or "unknown"
+                await c.reply(LOGMSG + f"Current branch: {current_branch}")
+                return
+
+            print(f"is branch switch to {target_branch}")
+            request_branch_switch(target_branch)
+            await c.reply(LOGMSG + f"Switching to branch '{target_branch}' and restarting...")
+            return
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
             video_b64 = download_reddit_video_tryall_b64(url)            
@@ -184,9 +247,11 @@ class TurboBotCommand(Command):
         elif msg == "#":
             print("is hash")
             git_info = get_git_info()
-            str = f"Uptime: {(time.time() - start_time)} seconds\n"
-            str += git_info
-            await c.reply(  LOGMSG + "I am here.\n" + str)            
+            machine_info = get_machine_info()
+            status_message = f"Uptime: {(time.time() - start_time)} seconds\n"
+            status_message += git_info + "\n"
+            status_message += machine_info
+            await c.reply(  LOGMSG + "I am here.\n" + status_message)            
         elif msg == "#turboboot":
             print("is reboot")
             await c.reply(  LOGMSG + "turbobot rebooting...")

@@ -1,21 +1,27 @@
+from datetime import datetime, timedelta, timezone
+import re
 
-import os
+import matplotlib.pyplot as plt
+import yfinance as yf
+
 from handlers.base_handler import BaseHandler
 from utils.misc_utils import *
-import yfinance as yf
-import re
-import matplotlib.pyplot as plt
+
+
+DEFAULT_DURATION = "1y"
+INTRADAY_THRESHOLD_DAYS = 5
+
 
 class TickerHandler(BaseHandler):
 
     def can_handle(self) -> bool:
         self.tickers = extract_ticker_symbols(self.input_str)
-        return (len(self.tickers)>0)
+        return len(self.tickers) > 0
 
     def process_message(self, msg, attachments):
         if self.tickers:
             return {
-                "message": get_stock_summary( convert_to_get_stock_summary_input(self.tickers) ),
+                "message": get_stock_summary(convert_to_get_stock_summary_input(self.tickers)),
                 "attachments": [plot_stock_data_base64(self.tickers)],
             }
         return []
@@ -23,12 +29,13 @@ class TickerHandler(BaseHandler):
     @staticmethod
     def get_name() -> str:
         return "TickerHandler"
-    
-    @staticmethod    
+
+    @staticmethod
     def get_help_text() -> str:
         retval = "Gets stock info for any ticker after '$'.  i.e. $amd. \n"
-        retval += "Optoinally add a during, i.e. $amd.5y   \n"
+        retval += "Optionally add a duration, i.e. $amd.5y, $msft.10d, $spy.18mo.   \n"
         return retval
+
 
 def get_stock_summary(ticker_symbols):
     """
@@ -44,13 +51,8 @@ def get_stock_summary(ticker_symbols):
 
     for ticker_symbol in ticker_symbols:
         try:
-            # Fetch stock data
             stock = yf.Ticker(ticker_symbol)
-            
-            # Extract basic information
             info = stock.info
-
-            # Prepare summary information
             summary = (f"\nBasic Stock Information for {ticker_symbol.upper()}:\n"
                        f"----------------------------\n"
                        f"Company Name: {info.get('longName', 'N/A')}\n"
@@ -65,111 +67,130 @@ def get_stock_summary(ticker_symbols):
                        f"52-Week Low: {info.get('fiftyTwoWeekLow', 'N/A')}\n"
                        f"CEO: {info.get('ceo', 'N/A')}")
             results.append(summary)
-        
         except Exception as e:
             results.append(f"An error occurred while fetching data for {ticker_symbol}: {e}")
 
     return "\n".join(results)
 
+
 def extract_ticker_symbols(input_string):
     """
     Extract ticker symbols from a string if they are prefixed with '$', including optional duration.
-
-    Parameters:
-        input_string (str): The input string to parse.
-
-    Returns:
-        list of tuples: A list of tuples where each tuple contains a ticker symbol and a duration.
     """
-    matches = re.findall(r'\$([a-zA-Z]\w*)(?:\.([a-zA-Z0-9]+))?', input_string)
-    return [(symbol, duration if duration else "1y") for symbol, duration in matches]
+    matches = re.findall(r'\$([a-zA-Z][\w-]*)(?:\.([a-zA-Z0-9]+))?', input_string)
+    return [(symbol, duration.lower() if duration else DEFAULT_DURATION) for symbol, duration in matches]
+
 
 def convert_to_get_stock_summary_input(ticker_tuples):
-    """
-    Convert the output of extract_ticker_symbols to the input format expected by get_stock_summary.
-
-    Parameters:
-        ticker_tuples (list of tuples): A list of tuples where each tuple contains a stock ticker symbol and a duration.
-
-    Returns:
-        list of str: A list of stock ticker symbols.
-    """
     return [symbol for symbol, _ in ticker_tuples]
 
-def clean_history_for_plot(hist):
+
+def duration_to_timedelta(duration):
+    """Convert a user supplied duration like 10d, 6w, 18mo, or 3y to a timedelta."""
+    match = re.fullmatch(r'(\d+)(d|w|mo|m|y)', duration.lower())
+    if not match:
+        raise ValueError(f"Unsupported duration '{duration}'. Use a number followed by d, w, mo/m, or y.")
+
+    amount = int(match.group(1))
+    unit = match.group(2)
+    if amount <= 0:
+        raise ValueError("Duration must be greater than zero.")
+
+    if unit == 'd':
+        return timedelta(days=amount)
+    if unit == 'w':
+        return timedelta(weeks=amount)
+    if unit in ('mo', 'm'):
+        return timedelta(days=amount * 30)
+    if unit == 'y':
+        return timedelta(days=amount * 365)
+    raise ValueError(f"Unsupported duration unit '{unit}'.")
+
+
+def get_history_options(duration, now=None):
+    """Build yfinance history options for arbitrary durations."""
+    now = now or datetime.now(timezone.utc)
+    delta = duration_to_timedelta(duration)
+    options = {"start": now - delta, "end": now, "auto_adjust": False}
+    if delta <= timedelta(days=INTRADAY_THRESHOLD_DAYS):
+        options["interval"] = "1h"
+    return options
+
+
+def format_price(value):
+    return f"${value:.2f}"
+
+
+def clean_price_history(hist):
     """
-    Keep only rows with usable closing prices before plotting.
-    Some quote providers can return placeholder rows with Close == 0 or
-    stale zero-volume prices that are not safe to plot as real prices.
+    Return rows with usable close prices for plotting.
+
+    Some quote providers return placeholder rows with Close == 0 or stale
+    zero-volume prices that are not safe to plot as real prices.
     """
     if hist.empty or "Close" not in hist:
         return hist
 
-    hist = hist.dropna(subset=["Close"]).loc[lambda df: df["Close"] > 0]
+    hist = hist[hist["Close"].notna() & (hist["Close"] > 0)].copy()
     if "Volume" in hist and (hist["Volume"] > 0).any():
-        hist = hist.loc[hist["Volume"] > 0]
+        hist = hist[hist["Volume"] > 0].copy()
 
     return hist
 
+
+def clean_history_for_plot(hist):
+    return clean_price_history(hist)
+
+
 def plot_stock_data_base64(ticker_symbols):
     """
-    Plot the historical closing prices for a list of ticker symbols as percentage changes,
-    ensuring all stocks start at the same point, and mark the dollar values at the beginning and end.
+    Plot historical prices for a list of ticker symbols as percentage changes.
 
-    Always includes $SPY and uses the longest supplied duration for all tickers.
-
-    Parameters:
-        ticker_symbols (list of tuples): A list of tuples where each tuple contains a stock ticker symbol and a duration.
-
-    Returns:
-        str: The base64 string of the generated plot.
+    Always includes $SPY. Uses the longest supplied duration for every ticker so each
+    line is plotted over the same requested time range. Intraday ranges up to five
+    days use hourly granularity.
     """
     plt.figure(figsize=(10, 6))
 
-    ticker_symbols = list(ticker_symbols)
+    tickers_to_plot = list(ticker_symbols)
+    longest_duration = max(
+        (duration for _, duration in tickers_to_plot),
+        key=lambda duration: duration_to_timedelta(duration),
+    )
+    if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in tickers_to_plot):
+        tickers_to_plot.insert(0, ("SPY", longest_duration))
 
-    # Ensure $SPY is included
-    if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in ticker_symbols):
-        ticker_symbols.insert(0,("SPY", "1y"))
+    history_options = get_history_options(longest_duration)
+    plotted_any_series = False
 
-    # Determine the longest duration
-    durations = [duration for _, duration in ticker_symbols]
-    longest_duration = max(durations, key=lambda d: int(d[:-1]) if d[-1] == 'y' else int(d[:-2]) / 12)
-
-    for ticker_symbol, _ in ticker_symbols:
+    for ticker_symbol, _ in tickers_to_plot:
         try:
-            # Fetch historical market data with the longest duration
             stock = yf.Ticker(ticker_symbol)
-            hist = stock.history(period=longest_duration)
-            hist = clean_history_for_plot(hist)
+            hist = stock.history(**history_options)
+            hist = clean_price_history(hist)
             if hist.empty:
-                print(f"No usable historical closing prices for {ticker_symbol}")
+                print(f"No usable historical close prices found for {ticker_symbol}")
                 continue
 
-            # Calculate percentage change and normalize
             hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
-
-            # Plot normalized closing prices
-            plt.plot(hist.index, hist["Normalized"], label=f"{ticker_symbol.upper()} ({longest_duration})")
-
-            # Mark the starting and ending dollar values
-            plt.text(hist.index[0], hist["Normalized"].iloc[0], f"${hist['Close'].iloc[0]:.2f}", fontsize=8, color="black")
-            plt.text(hist.index[-1], hist["Normalized"].iloc[-1], f"${hist['Close'].iloc[-1]:.2f}", fontsize=8, color="black")
+            start_price = format_price(hist["Close"].iloc[0])
+            end_price = format_price(hist["Close"].iloc[-1])
+            label = f"{ticker_symbol.upper()} ({start_price} -> {end_price})"
+            plt.plot(hist.index, hist["Normalized"], label=label)
+            plotted_any_series = True
         except Exception as e:
             print(f"An error occurred while fetching data for {ticker_symbol}: {e}")
 
-    # Add labels, title, and legend
     plt.xlabel("Date")
-    plt.ylabel("Percentage Change (%)")
-    plt.title("Historical Closing Prices (Normalized)")
-    plt.legend()
+    plt.ylabel("Normalized Price (%)")
+    interval_description = "hourly" if history_options.get("interval") == "1h" else "daily"
+    plt.title(f"Historical Prices (Normalized, {longest_duration}, {interval_description})")
+    if plotted_any_series:
+        plt.legend()
     plt.grid()
 
-    # Save the plot to a temporary file and convert to base64
     filename = "temp_plot.png"
     plt.savefig(filename)
     plt.close()
 
-    # Convert file to base64
-    base64_string = file_to_base64(filename)
-    return base64_string
+    return file_to_base64(filename)
