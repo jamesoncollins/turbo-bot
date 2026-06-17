@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 DEFAULT_DURATION = "1y"
 INTRADAY_THRESHOLD_DAYS = 5
+MAX_REASONABLE_DAILY_PRICE_RATIO = 10
 
 
 class TickerHandler(BaseHandler):
