@@ -10,6 +10,8 @@ from utils.misc_utils import *
 
 DEFAULT_DURATION = "1y"
 INTRADAY_THRESHOLD_DAYS = 5
+RECENT_INTRADAY_PERIOD = "5d"
+RECENT_INTRADAY_INTERVAL = "1h"
 
 
 class TickerHandler(BaseHandler):
@@ -142,6 +144,44 @@ def clean_history_for_plot(hist):
     return clean_price_history(hist)
 
 
+def has_placeholder_price_rows(hist):
+    if hist.empty:
+        return False
+    has_zero_or_missing_close = "Close" in hist and (hist["Close"].isna() | (hist["Close"] <= 0)).any()
+    has_mixed_volume = "Volume" in hist and (hist["Volume"] <= 0).any() and (hist["Volume"] > 0).any()
+    return bool(has_zero_or_missing_close or has_mixed_volume)
+
+
+def should_use_recent_intraday_fallback(raw_hist, clean_hist, history_options):
+    if history_options.get("interval"):
+        return False
+    return len(clean_hist) < 3 or has_placeholder_price_rows(raw_hist)
+
+
+def keep_latest_session(hist):
+    if hist.empty:
+        return hist
+
+    latest_session = hist.index[-1].date()
+    return hist[[index_value.date() == latest_session for index_value in hist.index]].copy()
+
+
+def fetch_price_history(stock, history_options):
+    raw_hist = stock.history(**history_options)
+    clean_hist = clean_price_history(raw_hist)
+    if should_use_recent_intraday_fallback(raw_hist, clean_hist, history_options):
+        intraday_hist = stock.history(
+            period=RECENT_INTRADAY_PERIOD,
+            interval=RECENT_INTRADAY_INTERVAL,
+            auto_adjust=False,
+        )
+        intraday_clean = clean_price_history(intraday_hist)
+        intraday_clean = keep_latest_session(intraday_clean)
+        if len(intraday_clean) >= len(clean_hist):
+            return intraday_clean
+    return clean_hist
+
+
 def plot_stock_data_base64(ticker_symbols):
     """
     Plot historical prices for a list of ticker symbols as percentage changes.
@@ -166,8 +206,7 @@ def plot_stock_data_base64(ticker_symbols):
     for ticker_symbol, _ in tickers_to_plot:
         try:
             stock = yf.Ticker(ticker_symbol)
-            hist = stock.history(**history_options)
-            hist = clean_price_history(hist)
+            hist = fetch_price_history(stock, history_options)
             if hist.empty:
                 print(f"No usable historical close prices found for {ticker_symbol}")
                 continue

@@ -10,7 +10,9 @@ from handlers.ticker_handler import (
     clean_price_history,
     duration_to_timedelta,
     extract_ticker_symbols,
+    fetch_price_history,
     get_history_options,
+    keep_latest_session,
     plot_stock_data_base64,
 )
 
@@ -104,8 +106,8 @@ class TickerHandlerTest(unittest.TestCase):
         mock_file_to_base64,
     ):
         hist = pd.DataFrame(
-            {"Close": [10.0, 12.0]},
-            index=pd.date_range("2026-06-01", periods=2, tz="UTC"),
+            {"Close": [10.0, 11.0, 12.0]},
+            index=pd.date_range("2026-06-01", periods=3, tz="UTC"),
         )
         ticker_instance = MagicMock()
         ticker_instance.history.return_value = hist
@@ -124,6 +126,53 @@ class TickerHandlerTest(unittest.TestCase):
         self.assertEqual(mock_plt.text.call_count, 0)
         labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
         self.assertEqual(labels, ["SPY ($10.00 -> $12.00)", "AMD ($10.00 -> $12.00)"])
+
+    def test_fetch_price_history_uses_intraday_fallback_for_broken_daily_data(self):
+        daily_hist = pd.DataFrame(
+            {"Close": [20320.33, 21425.08, 13.69], "Volume": [0, 0, 9986045]},
+            index=pd.date_range("2026-06-12", periods=3, tz="UTC"),
+        )
+        intraday_hist = pd.DataFrame(
+            {"Close": [21.94, 15.29, 12.58, 13.74], "Volume": [86602, 304779, 4454388, 849740]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-15 10:30",
+                    "2026-06-15 15:30",
+                    "2026-06-16 09:30",
+                    "2026-06-16 15:30",
+                ],
+                utc=True,
+            ),
+        )
+        stock = MagicMock()
+        stock.history.side_effect = [daily_hist, intraday_hist]
+
+        cleaned = fetch_price_history(stock, {"period": "1y", "auto_adjust": False})
+
+        self.assertEqual(cleaned["Close"].tolist(), [12.58, 13.74])
+        self.assertEqual(stock.history.call_count, 2)
+        self.assertEqual(
+            stock.history.call_args.kwargs,
+            {"period": "5d", "interval": "1h", "auto_adjust": False},
+        )
+
+    def test_keep_latest_session_removes_older_intraday_bars(self):
+        hist = pd.DataFrame(
+            {"Close": [21.94, 15.29, 12.58, 13.74]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-15 10:30",
+                    "2026-06-15 15:30",
+                    "2026-06-16 09:30",
+                    "2026-06-16 15:30",
+                ],
+                utc=True,
+            ),
+        )
+
+        latest = keep_latest_session(hist)
+
+        self.assertEqual(latest["Close"].tolist(), [12.58, 13.74])
 
     @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
     @patch("handlers.ticker_handler.plt")
