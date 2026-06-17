@@ -108,7 +108,7 @@ def get_history_options(duration, now=None):
     """Build yfinance history options for arbitrary durations."""
     now = now or datetime.now(timezone.utc)
     delta = duration_to_timedelta(duration)
-    options = {"start": now - delta, "end": now}
+    options = {"start": now - delta, "end": now, "auto_adjust": False}
     if delta <= timedelta(days=INTRADAY_THRESHOLD_DAYS):
         options["interval"] = "1h"
     return options
@@ -116,6 +116,13 @@ def get_history_options(duration, now=None):
 
 def format_price(value):
     return f"${value:.2f}"
+
+
+def clean_price_history(hist):
+    """Return rows with usable positive close prices for plotting."""
+    if hist.empty or "Close" not in hist:
+        return hist
+    return hist[hist["Close"].notna() & (hist["Close"] > 0)].copy()
 
 
 def plot_stock_data_base64(ticker_symbols):
@@ -144,8 +151,9 @@ def plot_stock_data_base64(ticker_symbols):
         try:
             stock = yf.Ticker(ticker_symbol)
             hist = stock.history(**history_options)
+            hist = clean_price_history(hist)
             if hist.empty:
-                print(f"No historical data found for {ticker_symbol}")
+                print(f"No usable historical close prices found for {ticker_symbol}")
                 continue
 
             hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
