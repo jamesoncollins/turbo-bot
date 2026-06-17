@@ -120,29 +120,10 @@ def format_price(value):
 
 
 def clean_price_history(hist):
-    """Return rows with usable positive close prices for plotting.
-
-    Some newly launched or ticker-reused funds can include stale predecessor
-    history in Yahoo data. If there is an extreme price discontinuity, keep the
-    most recent continuous segment so normalization is based on the current
-    instrument rather than legacy rows.
-    """
+    """Return rows with usable positive close prices for plotting."""
     if hist.empty or "Close" not in hist:
         return hist
-
-    cleaned = hist[hist["Close"].notna() & (hist["Close"] > 0)].copy()
-    if len(cleaned) < 2:
-        return cleaned
-
-    price_ratios = cleaned["Close"] / cleaned["Close"].shift(1)
-    discontinuities = price_ratios[
-        (price_ratios > MAX_REASONABLE_DAILY_PRICE_RATIO)
-        | (price_ratios < 1 / MAX_REASONABLE_DAILY_PRICE_RATIO)
-    ].index
-    if len(discontinuities) > 0:
-        cleaned = cleaned.loc[discontinuities[-1]:]
-
-    return cleaned
+    return hist[hist["Close"].notna() & (hist["Close"] > 0)].copy()
 
 
 def plot_stock_data_base64(ticker_symbols):

@@ -86,28 +86,6 @@ def test_clean_price_history_removes_zero_and_missing_close_values():
     assert cleaned["Close"].tolist() == [10.0, 12.0]
 
 
-def test_clean_price_history_keeps_recent_segment_for_spcm_style_reused_ticker_data():
-    hist = pd.DataFrame(
-        {"Close": [2500000.0, 2600000.0, 28.50, 32.34]},
-        index=pd.date_range("2026-06-11", periods=4, tz="UTC"),
-    )
-
-    cleaned = clean_price_history(hist)
-
-    assert cleaned["Close"].tolist() == [28.50, 32.34]
-
-
-def test_clean_price_history_keeps_recent_segment_for_spcg_style_reused_ticker_data():
-    hist = pd.DataFrame(
-        {"Close": [1800000.0, 1750000.0, 20.75, 15.31]},
-        index=pd.date_range("2026-06-11", periods=4, tz="UTC"),
-    )
-
-    cleaned = clean_price_history(hist)
-
-    assert cleaned["Close"].tolist() == [20.75, 15.31]
-
-
 @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
 @patch("handlers.ticker_handler.plt")
 @patch("handlers.ticker_handler.yf.Ticker")
@@ -128,43 +106,3 @@ def test_plot_ignores_zero_close_rows_when_labeling_and_normalizing(mock_ticker,
     plotted_values = [call.args[1].tolist() for call in mock_plt.plot.call_args_list]
     assert plotted_values[0] == pytest.approx([100.0, 110.0])
     assert plotted_values[1] == pytest.approx([100.0, 110.0])
-
-
-@patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
-@patch("handlers.ticker_handler.plt")
-@patch("handlers.ticker_handler.yf.Ticker")
-def test_plot_spcm_and_spcg_use_recent_continuous_price_segments(mock_ticker, mock_plt, mock_file_to_base64):
-    histories = {
-        "SPY": pd.DataFrame(
-            {"Close": [100.0, 101.0, 102.0, 103.0]},
-            index=pd.date_range("2026-06-11", periods=4, tz="UTC"),
-        ),
-        "SPCM": pd.DataFrame(
-            {"Close": [2500000.0, 2600000.0, 28.50, 32.34]},
-            index=pd.date_range("2026-06-11", periods=4, tz="UTC"),
-        ),
-        "SPCG": pd.DataFrame(
-            {"Close": [1800000.0, 1750000.0, 20.75, 15.31]},
-            index=pd.date_range("2026-06-11", periods=4, tz="UTC"),
-        ),
-    }
-
-    def ticker_factory(symbol):
-        ticker = MagicMock()
-        ticker.history.return_value = histories[symbol.upper()]
-        return ticker
-
-    mock_ticker.side_effect = ticker_factory
-
-    result = plot_stock_data_base64([("SPCM", "1y"), ("SPCG", "1y")])
-
-    assert result == "encoded-plot"
-    labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
-    assert labels == [
-        "SPY ($100.00 → $103.00)",
-        "SPCM ($28.50 → $32.34)",
-        "SPCG ($20.75 → $15.31)",
-    ]
-    plotted_values = [call.args[1].tolist() for call in mock_plt.plot.call_args_list]
-    assert plotted_values[1] == pytest.approx([100.0, 113.4736842])
-    assert plotted_values[2] == pytest.approx([100.0, 73.7831325])
