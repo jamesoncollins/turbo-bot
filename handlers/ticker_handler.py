@@ -96,6 +96,21 @@ def convert_to_get_stock_summary_input(ticker_tuples):
     """
     return [symbol for symbol, _ in ticker_tuples]
 
+def clean_history_for_plot(hist):
+    """
+    Keep only rows with usable closing prices before plotting.
+    Some quote providers can return placeholder rows with Close == 0 or
+    stale zero-volume prices that are not safe to plot as real prices.
+    """
+    if hist.empty or "Close" not in hist:
+        return hist
+
+    hist = hist.dropna(subset=["Close"]).loc[lambda df: df["Close"] > 0]
+    if "Volume" in hist and (hist["Volume"] > 0).any():
+        hist = hist.loc[hist["Volume"] > 0]
+
+    return hist
+
 def plot_stock_data_base64(ticker_symbols):
     """
     Plot the historical closing prices for a list of ticker symbols as percentage changes,
@@ -111,6 +126,8 @@ def plot_stock_data_base64(ticker_symbols):
     """
     plt.figure(figsize=(10, 6))
 
+    ticker_symbols = list(ticker_symbols)
+
     # Ensure $SPY is included
     if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in ticker_symbols):
         ticker_symbols.insert(0,("SPY", "1y"))
@@ -124,6 +141,10 @@ def plot_stock_data_base64(ticker_symbols):
             # Fetch historical market data with the longest duration
             stock = yf.Ticker(ticker_symbol)
             hist = stock.history(period=longest_duration)
+            hist = clean_history_for_plot(hist)
+            if hist.empty:
+                print(f"No usable historical closing prices for {ticker_symbol}")
+                continue
 
             # Calculate percentage change and normalize
             hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
