@@ -12,8 +12,11 @@ from handlers.ticker_handler import (
     extract_ticker_symbols,
     fetch_price_history,
     get_history_options,
+    history_window,
+    is_intraday_history,
     keep_latest_session,
     plot_stock_data_base64,
+    trim_history_to_window,
 )
 
 
@@ -174,6 +177,53 @@ class TickerHandlerTest(unittest.TestCase):
 
         self.assertEqual(latest["Close"].tolist(), [12.58, 13.74])
 
+    def test_history_window_uses_nonempty_series_bounds(self):
+        first = pd.DataFrame(
+            {"Close": [10.0, 11.0]},
+            index=pd.to_datetime(["2026-06-15 10:30", "2026-06-16 15:30"], utc=True),
+        )
+        second = pd.DataFrame(
+            {"Close": [12.0, 13.0]},
+            index=pd.to_datetime(["2026-06-15 11:30", "2026-06-16 14:30"], utc=True),
+        )
+
+        self.assertEqual(
+            history_window([first, second]),
+            (first.index[0], first.index[-1]),
+        )
+
+    def test_trim_history_to_window_clips_benchmark_to_requested_tickers(self):
+        benchmark = pd.DataFrame(
+            {"Close": [99.0, 100.0, 101.0, 102.0]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-13 10:30",
+                    "2026-06-15 10:30",
+                    "2026-06-16 15:30",
+                    "2026-06-17 10:30",
+                ],
+                utc=True,
+            ),
+        )
+
+        trimmed = trim_history_to_window(
+            benchmark,
+            pd.Timestamp("2026-06-15 10:30", tz="UTC"),
+            pd.Timestamp("2026-06-16 15:30", tz="UTC"),
+        )
+
+        self.assertEqual(trimmed["Close"].tolist(), [100.0, 101.0])
+
+    def test_is_intraday_history_detects_timed_bars(self):
+        daily = pd.DataFrame({"Close": [10.0]}, index=pd.to_datetime(["2026-06-16"], utc=True))
+        intraday = pd.DataFrame(
+            {"Close": [10.0]},
+            index=pd.to_datetime(["2026-06-16 10:30"], utc=True),
+        )
+
+        self.assertFalse(is_intraday_history(daily))
+        self.assertTrue(is_intraday_history(intraday))
+
     @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
     @patch("handlers.ticker_handler.plt")
     @patch("handlers.ticker_handler.yf.Ticker")
@@ -201,6 +251,49 @@ class TickerHandlerTest(unittest.TestCase):
             self.assertEqual(len(values), 2)
             self.assertAlmostEqual(values[0], 100.0)
             self.assertAlmostEqual(values[1], 110.0)
+
+    @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
+    @patch("handlers.ticker_handler.plt")
+    @patch("handlers.ticker_handler.yf.Ticker")
+    def test_plot_clips_spy_to_intraday_fallback_window(
+        self,
+        mock_ticker,
+        mock_plt,
+        mock_file_to_base64,
+    ):
+        spcm_daily = pd.DataFrame(
+            {"Close": [34.79, 38.26], "Volume": [1064400, 2795430]},
+            index=pd.to_datetime(["2026-06-15", "2026-06-16"], utc=True),
+        )
+        spcm_intraday = pd.DataFrame(
+            {"Close": [28.96, 38.13], "Volume": [55940, 178516]},
+            index=pd.to_datetime(["2026-06-15 10:30", "2026-06-16 15:30"], utc=True),
+        )
+        spy_intraday = pd.DataFrame(
+            {"Close": [599.0, 600.0, 601.0, 602.0], "Volume": [1, 1, 1, 1]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-13 10:30",
+                    "2026-06-15 10:30",
+                    "2026-06-16 15:30",
+                    "2026-06-17 10:30",
+                ],
+                utc=True,
+            ),
+        )
+
+        spcm = MagicMock()
+        spcm.history.side_effect = [spcm_daily, spcm_intraday]
+        spy = MagicMock()
+        spy.history.return_value = spy_intraday
+        mock_ticker.side_effect = [spcm, spy]
+
+        result = plot_stock_data_base64([("SPCM", "1y")])
+
+        self.assertEqual(result, "encoded-plot")
+        plotted_indexes = [call.args[0].tolist() for call in mock_plt.plot.call_args_list]
+        self.assertEqual(plotted_indexes[0], spy_intraday.index[1:3].tolist())
+        self.assertEqual(plotted_indexes[1], spcm_intraday.index.tolist())
 
 
 if __name__ == "__main__":

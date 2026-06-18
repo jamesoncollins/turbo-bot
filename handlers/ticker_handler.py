@@ -181,6 +181,37 @@ def fetch_price_history(stock, history_options):
     return clean_hist
 
 
+def fetch_recent_intraday_history(stock):
+    hist = stock.history(
+        period=RECENT_INTRADAY_PERIOD,
+        interval=RECENT_INTRADAY_INTERVAL,
+        auto_adjust=False,
+    )
+    return clean_price_history(hist)
+
+
+def is_intraday_history(hist):
+    if hist.empty:
+        return False
+    return any(index_value.time() != datetime.min.time() for index_value in hist.index)
+
+
+def history_window(histories):
+    nonempty_histories = [hist for hist in histories if not hist.empty]
+    if not nonempty_histories:
+        return None
+    return (
+        min(hist.index[0] for hist in nonempty_histories),
+        max(hist.index[-1] for hist in nonempty_histories),
+    )
+
+
+def trim_history_to_window(hist, start, end):
+    if hist.empty:
+        return hist
+    return hist[(hist.index >= start) & (hist.index <= end)].copy()
+
+
 def plot_stock_data_base64(ticker_symbols):
     """
     Plot historical prices for a list of ticker symbols as percentage changes.
@@ -191,21 +222,40 @@ def plot_stock_data_base64(ticker_symbols):
     """
     plt.figure(figsize=(10, 6))
 
-    tickers_to_plot = list(ticker_symbols)
+    requested_tickers = list(ticker_symbols)
     longest_duration = max(
-        (duration for _, duration in tickers_to_plot),
+        (duration for _, duration in requested_tickers),
         key=lambda duration: duration_to_timedelta(duration),
     )
-    if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in tickers_to_plot):
-        tickers_to_plot.insert(0, ("SPY", longest_duration))
-
+    include_spy_benchmark = not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in requested_tickers)
     history_options = get_history_options(longest_duration)
     plotted_any_series = False
+    histories_to_plot = []
 
-    for ticker_symbol, _ in tickers_to_plot:
+    for ticker_symbol, _ in requested_tickers:
         try:
             stock = yf.Ticker(ticker_symbol)
             hist = fetch_price_history(stock, history_options)
+            histories_to_plot.append((ticker_symbol, hist))
+        except Exception as e:
+            print(f"An error occurred while fetching data for {ticker_symbol}: {e}")
+
+    if include_spy_benchmark:
+        try:
+            stock = yf.Ticker("SPY")
+            if any(is_intraday_history(hist) for _, hist in histories_to_plot):
+                spy_hist = fetch_recent_intraday_history(stock)
+                window = history_window([hist for _, hist in histories_to_plot])
+                if window:
+                    spy_hist = trim_history_to_window(spy_hist, *window)
+            else:
+                spy_hist = fetch_price_history(stock, history_options)
+            histories_to_plot.insert(0, ("SPY", spy_hist))
+        except Exception as e:
+            print(f"An error occurred while fetching data for SPY: {e}")
+
+    for ticker_symbol, hist in histories_to_plot:
+        try:
             if hist.empty:
                 print(f"No usable historical close prices found for {ticker_symbol}")
                 continue
