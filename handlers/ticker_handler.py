@@ -176,7 +176,6 @@ def fetch_price_history(stock, history_options):
             auto_adjust=False,
         )
         intraday_clean = clean_price_history(intraday_hist)
-        intraday_clean = keep_latest_session(intraday_clean)
         if len(intraday_clean) >= len(clean_hist):
             return intraday_clean
     return clean_hist

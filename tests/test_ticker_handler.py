@@ -149,7 +149,7 @@ class TickerHandlerTest(unittest.TestCase):
 
         cleaned = fetch_price_history(stock, {"period": "1y", "auto_adjust": False})
 
-        self.assertEqual(cleaned["Close"].tolist(), [12.58, 13.74])
+        self.assertEqual(cleaned["Close"].tolist(), [21.94, 15.29, 12.58, 13.74])
         self.assertEqual(stock.history.call_count, 2)
         self.assertEqual(
             stock.history.call_args.kwargs,
