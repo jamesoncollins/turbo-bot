@@ -282,8 +282,8 @@ class TurboBotCommand(Command):
                         returnMsg = ""
                         try:
                             retdict = handler.process_message(msg, b64_attachments)
-                            returnMsg = retdict["message"]
-                            returnAttachments = retdict["attachments"]
+                            returnMsg = retdict.get("message") or ""
+                            returnAttachments = retdict.get("attachments") or []
                             print(f"retmessage {returnMsg}")
                             print(f"attachment len {len(returnAttachments)}")
                         except Exception as e:

@@ -1,19 +1,24 @@
 from datetime import datetime, timedelta, timezone
+import re
+
+import matplotlib.pyplot as plt
+import yfinance as yf
+
 from handlers.base_handler import BaseHandler
 from utils.misc_utils import *
-import yfinance as yf
-import re
-import matplotlib.pyplot as plt
+
 
 DEFAULT_DURATION = "1y"
 INTRADAY_THRESHOLD_DAYS = 5
+RECENT_INTRADAY_PERIOD = "5d"
+RECENT_INTRADAY_INTERVAL = "1h"
 
 
 class TickerHandler(BaseHandler):
 
     def can_handle(self) -> bool:
         self.tickers = extract_ticker_symbols(self.input_str)
-        return (len(self.tickers) > 0)
+        return len(self.tickers) > 0
 
     def process_message(self, msg, attachments):
         if self.tickers:
@@ -108,7 +113,7 @@ def get_history_options(duration, now=None):
     """Build yfinance history options for arbitrary durations."""
     now = now or datetime.now(timezone.utc)
     delta = duration_to_timedelta(duration)
-    options = {"start": now - delta, "end": now}
+    options = {"start": now - delta, "end": now, "auto_adjust": False}
     if delta <= timedelta(days=INTRADAY_THRESHOLD_DAYS):
         options["interval"] = "1h"
     return options
@@ -116,6 +121,95 @@ def get_history_options(duration, now=None):
 
 def format_price(value):
     return f"${value:.2f}"
+
+
+def clean_price_history(hist):
+    """
+    Return rows with usable close prices for plotting.
+
+    Some quote providers return placeholder rows with Close == 0 or stale
+    zero-volume prices that are not safe to plot as real prices.
+    """
+    if hist.empty or "Close" not in hist:
+        return hist
+
+    hist = hist[hist["Close"].notna() & (hist["Close"] > 0)].copy()
+    if "Volume" in hist and (hist["Volume"] > 0).any():
+        hist = hist[hist["Volume"] > 0].copy()
+
+    return hist
+
+
+def clean_history_for_plot(hist):
+    return clean_price_history(hist)
+
+
+def has_placeholder_price_rows(hist):
+    if hist.empty:
+        return False
+    has_zero_or_missing_close = "Close" in hist and (hist["Close"].isna() | (hist["Close"] <= 0)).any()
+    has_mixed_volume = "Volume" in hist and (hist["Volume"] <= 0).any() and (hist["Volume"] > 0).any()
+    return bool(has_zero_or_missing_close or has_mixed_volume)
+
+
+def should_use_recent_intraday_fallback(raw_hist, clean_hist, history_options):
+    if history_options.get("interval"):
+        return False
+    return len(clean_hist) < 3 or has_placeholder_price_rows(raw_hist)
+
+
+def keep_latest_session(hist):
+    if hist.empty:
+        return hist
+
+    latest_session = hist.index[-1].date()
+    return hist[[index_value.date() == latest_session for index_value in hist.index]].copy()
+
+
+def fetch_price_history(stock, history_options):
+    raw_hist = stock.history(**history_options)
+    clean_hist = clean_price_history(raw_hist)
+    if should_use_recent_intraday_fallback(raw_hist, clean_hist, history_options):
+        intraday_hist = stock.history(
+            period=RECENT_INTRADAY_PERIOD,
+            interval=RECENT_INTRADAY_INTERVAL,
+            auto_adjust=False,
+        )
+        intraday_clean = clean_price_history(intraday_hist)
+        if len(intraday_clean) >= len(clean_hist):
+            return intraday_clean
+    return clean_hist
+
+
+def fetch_recent_intraday_history(stock):
+    hist = stock.history(
+        period=RECENT_INTRADAY_PERIOD,
+        interval=RECENT_INTRADAY_INTERVAL,
+        auto_adjust=False,
+    )
+    return clean_price_history(hist)
+
+
+def is_intraday_history(hist):
+    if hist.empty:
+        return False
+    return any(index_value.time() != datetime.min.time() for index_value in hist.index)
+
+
+def history_window(histories):
+    nonempty_histories = [hist for hist in histories if not hist.empty]
+    if not nonempty_histories:
+        return None
+    return (
+        min(hist.index[0] for hist in nonempty_histories),
+        max(hist.index[-1] for hist in nonempty_histories),
+    )
+
+
+def trim_history_to_window(hist, start, end):
+    if hist.empty:
+        return hist
+    return hist[(hist.index >= start) & (hist.index <= end)].copy()
 
 
 def plot_stock_data_base64(ticker_symbols):
@@ -128,30 +222,48 @@ def plot_stock_data_base64(ticker_symbols):
     """
     plt.figure(figsize=(10, 6))
 
-    tickers_to_plot = list(ticker_symbols)
+    requested_tickers = list(ticker_symbols)
     longest_duration = max(
-        (duration for _, duration in tickers_to_plot),
+        (duration for _, duration in requested_tickers),
         key=lambda duration: duration_to_timedelta(duration),
     )
-    if not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in tickers_to_plot):
-        tickers_to_plot.insert(0, ("SPY", longest_duration))
-
+    include_spy_benchmark = not any(ticker_symbol.lower() == "spy" for ticker_symbol, _ in requested_tickers)
     history_options = get_history_options(longest_duration)
-
     plotted_any_series = False
+    histories_to_plot = []
 
-    for ticker_symbol, _ in tickers_to_plot:
+    for ticker_symbol, _ in requested_tickers:
         try:
             stock = yf.Ticker(ticker_symbol)
-            hist = stock.history(**history_options)
+            hist = fetch_price_history(stock, history_options)
+            histories_to_plot.append((ticker_symbol, hist))
+        except Exception as e:
+            print(f"An error occurred while fetching data for {ticker_symbol}: {e}")
+
+    if include_spy_benchmark:
+        try:
+            stock = yf.Ticker("SPY")
+            if any(is_intraday_history(hist) for _, hist in histories_to_plot):
+                spy_hist = fetch_recent_intraday_history(stock)
+                window = history_window([hist for _, hist in histories_to_plot])
+                if window:
+                    spy_hist = trim_history_to_window(spy_hist, *window)
+            else:
+                spy_hist = fetch_price_history(stock, history_options)
+            histories_to_plot.insert(0, ("SPY", spy_hist))
+        except Exception as e:
+            print(f"An error occurred while fetching data for SPY: {e}")
+
+    for ticker_symbol, hist in histories_to_plot:
+        try:
             if hist.empty:
-                print(f"No historical data found for {ticker_symbol}")
+                print(f"No usable historical close prices found for {ticker_symbol}")
                 continue
 
             hist["Normalized"] = (hist["Close"] / hist["Close"].iloc[0]) * 100
             start_price = format_price(hist["Close"].iloc[0])
             end_price = format_price(hist["Close"].iloc[-1])
-            label = f"{ticker_symbol.upper()} ({start_price} → {end_price})"
+            label = f"{ticker_symbol.upper()} ({start_price} -> {end_price})"
             plt.plot(hist.index, hist["Normalized"], label=label)
             plotted_any_series = True
         except Exception as e:

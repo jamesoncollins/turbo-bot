@@ -1,70 +1,300 @@
 from datetime import datetime, timedelta, timezone
+import unittest
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
 from handlers.ticker_handler import (
     DEFAULT_DURATION,
+    clean_history_for_plot,
+    clean_price_history,
     duration_to_timedelta,
     extract_ticker_symbols,
+    fetch_price_history,
     get_history_options,
+    history_window,
+    is_intraday_history,
+    keep_latest_session,
     plot_stock_data_base64,
+    trim_history_to_window,
 )
 
 
-def test_extract_ticker_symbols_supports_arbitrary_duration_units():
-    assert extract_ticker_symbols("compare $amd.10d $msft.6w $goog.18mo $spy") == [
-        ("amd", "10d"),
-        ("msft", "6w"),
-        ("goog", "18mo"),
-        ("spy", DEFAULT_DURATION),
-    ]
+class TickerHandlerTest(unittest.TestCase):
+    def test_extract_ticker_symbols_supports_arbitrary_duration_units(self):
+        self.assertEqual(
+            extract_ticker_symbols("compare $amd.10d $msft.6w $goog.18mo $spy"),
+            [
+                ("amd", "10d"),
+                ("msft", "6w"),
+                ("goog", "18mo"),
+                ("spy", DEFAULT_DURATION),
+            ],
+        )
+
+    def test_duration_to_timedelta_supports_days_weeks_months_and_years(self):
+        self.assertEqual(duration_to_timedelta("10d"), timedelta(days=10))
+        self.assertEqual(duration_to_timedelta("6w"), timedelta(weeks=6))
+        self.assertEqual(duration_to_timedelta("18mo"), timedelta(days=540))
+        self.assertEqual(duration_to_timedelta("2y"), timedelta(days=730))
+
+    def test_get_history_options_uses_requested_range_and_hourly_intraday(self):
+        now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+
+        hourly_options = get_history_options("4d", now=now)
+        self.assertEqual(
+            hourly_options,
+            {
+                "start": now - timedelta(days=4),
+                "end": now,
+                "auto_adjust": False,
+                "interval": "1h",
+            },
+        )
+
+        daily_options = get_history_options("10d", now=now)
+        self.assertEqual(
+            daily_options,
+            {
+                "start": now - timedelta(days=10),
+                "end": now,
+                "auto_adjust": False,
+            },
+        )
+
+    def test_clean_price_history_drops_trailing_zero_close(self):
+        hist = pd.DataFrame(
+            {"Close": [10.0, 11.0, 0.0]},
+            index=pd.to_datetime(["2026-06-12", "2026-06-15", "2026-06-16"]),
+        )
+
+        cleaned = clean_price_history(hist)
+
+        self.assertEqual(cleaned["Close"].tolist(), [10.0, 11.0])
+        self.assertEqual(cleaned.index[-1], pd.Timestamp("2026-06-15"))
+
+    def test_clean_price_history_drops_missing_close(self):
+        hist = pd.DataFrame(
+            {"Close": [10.0, None, 12.0]},
+            index=pd.to_datetime(["2026-06-12", "2026-06-15", "2026-06-16"]),
+        )
+
+        cleaned = clean_price_history(hist)
+
+        self.assertEqual(cleaned["Close"].tolist(), [10.0, 12.0])
+
+    def test_clean_price_history_drops_zero_volume_placeholders(self):
+        hist = pd.DataFrame(
+            {"Close": [20320.33, 21425.08, 13.69], "Volume": [0, 0, 9986045]},
+            index=pd.to_datetime(["2026-06-12", "2026-06-15", "2026-06-16"]),
+        )
+
+        cleaned = clean_price_history(hist)
+
+        self.assertEqual(cleaned["Close"].tolist(), [13.69])
+        self.assertEqual(cleaned["Volume"].tolist(), [9986045])
+
+    def test_clean_history_for_plot_aliases_clean_price_history(self):
+        hist = pd.DataFrame({"Close": [10.0, 0.0]})
+
+        self.assertEqual(clean_history_for_plot(hist)["Close"].tolist(), [10.0])
+
+    @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
+    @patch("handlers.ticker_handler.plt")
+    @patch("handlers.ticker_handler.yf.Ticker")
+    def test_plot_uses_longest_requested_range_and_prices_in_legend(
+        self,
+        mock_ticker,
+        mock_plt,
+        mock_file_to_base64,
+    ):
+        hist = pd.DataFrame(
+            {"Close": [10.0, 11.0, 12.0]},
+            index=pd.date_range("2026-06-01", periods=3, tz="UTC"),
+        )
+        ticker_instance = MagicMock()
+        ticker_instance.history.return_value = hist
+        mock_ticker.return_value = ticker_instance
+
+        result = plot_stock_data_base64([("AMD", "10d")])
+
+        self.assertEqual(result, "encoded-plot")
+        history_kwargs = ticker_instance.history.call_args.kwargs
+        self.assertEqual(set(history_kwargs), {"start", "end", "auto_adjust"})
+        self.assertIs(history_kwargs["auto_adjust"], False)
+        actual_range = history_kwargs["end"] - history_kwargs["start"]
+        self.assertGreater(actual_range, timedelta(days=9, hours=23, minutes=59))
+        self.assertLess(actual_range, timedelta(days=10, minutes=1))
+        self.assertEqual(mock_ticker.call_count, 2)
+        self.assertEqual(mock_plt.text.call_count, 0)
+        labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
+        self.assertEqual(labels, ["SPY ($10.00 -> $12.00)", "AMD ($10.00 -> $12.00)"])
+
+    def test_fetch_price_history_uses_intraday_fallback_for_broken_daily_data(self):
+        daily_hist = pd.DataFrame(
+            {"Close": [20320.33, 21425.08, 13.69], "Volume": [0, 0, 9986045]},
+            index=pd.date_range("2026-06-12", periods=3, tz="UTC"),
+        )
+        intraday_hist = pd.DataFrame(
+            {"Close": [21.94, 15.29, 12.58, 13.74], "Volume": [86602, 304779, 4454388, 849740]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-15 10:30",
+                    "2026-06-15 15:30",
+                    "2026-06-16 09:30",
+                    "2026-06-16 15:30",
+                ],
+                utc=True,
+            ),
+        )
+        stock = MagicMock()
+        stock.history.side_effect = [daily_hist, intraday_hist]
+
+        cleaned = fetch_price_history(stock, {"period": "1y", "auto_adjust": False})
+
+        self.assertEqual(cleaned["Close"].tolist(), [21.94, 15.29, 12.58, 13.74])
+        self.assertEqual(stock.history.call_count, 2)
+        self.assertEqual(
+            stock.history.call_args.kwargs,
+            {"period": "5d", "interval": "1h", "auto_adjust": False},
+        )
+
+    def test_keep_latest_session_removes_older_intraday_bars(self):
+        hist = pd.DataFrame(
+            {"Close": [21.94, 15.29, 12.58, 13.74]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-15 10:30",
+                    "2026-06-15 15:30",
+                    "2026-06-16 09:30",
+                    "2026-06-16 15:30",
+                ],
+                utc=True,
+            ),
+        )
+
+        latest = keep_latest_session(hist)
+
+        self.assertEqual(latest["Close"].tolist(), [12.58, 13.74])
+
+    def test_history_window_uses_nonempty_series_bounds(self):
+        first = pd.DataFrame(
+            {"Close": [10.0, 11.0]},
+            index=pd.to_datetime(["2026-06-15 10:30", "2026-06-16 15:30"], utc=True),
+        )
+        second = pd.DataFrame(
+            {"Close": [12.0, 13.0]},
+            index=pd.to_datetime(["2026-06-15 11:30", "2026-06-16 14:30"], utc=True),
+        )
+
+        self.assertEqual(
+            history_window([first, second]),
+            (first.index[0], first.index[-1]),
+        )
+
+    def test_trim_history_to_window_clips_benchmark_to_requested_tickers(self):
+        benchmark = pd.DataFrame(
+            {"Close": [99.0, 100.0, 101.0, 102.0]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-13 10:30",
+                    "2026-06-15 10:30",
+                    "2026-06-16 15:30",
+                    "2026-06-17 10:30",
+                ],
+                utc=True,
+            ),
+        )
+
+        trimmed = trim_history_to_window(
+            benchmark,
+            pd.Timestamp("2026-06-15 10:30", tz="UTC"),
+            pd.Timestamp("2026-06-16 15:30", tz="UTC"),
+        )
+
+        self.assertEqual(trimmed["Close"].tolist(), [100.0, 101.0])
+
+    def test_is_intraday_history_detects_timed_bars(self):
+        daily = pd.DataFrame({"Close": [10.0]}, index=pd.to_datetime(["2026-06-16"], utc=True))
+        intraday = pd.DataFrame(
+            {"Close": [10.0]},
+            index=pd.to_datetime(["2026-06-16 10:30"], utc=True),
+        )
+
+        self.assertFalse(is_intraday_history(daily))
+        self.assertTrue(is_intraday_history(intraday))
+
+    @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
+    @patch("handlers.ticker_handler.plt")
+    @patch("handlers.ticker_handler.yf.Ticker")
+    def test_plot_ignores_zero_close_rows_when_labeling_and_normalizing(
+        self,
+        mock_ticker,
+        mock_plt,
+        mock_file_to_base64,
+    ):
+        hist = pd.DataFrame(
+            {"Close": [10.0, 11.0, 0.0]},
+            index=pd.date_range("2026-06-01", periods=3, tz="UTC"),
+        )
+        ticker_instance = MagicMock()
+        ticker_instance.history.return_value = hist
+        mock_ticker.return_value = ticker_instance
+
+        result = plot_stock_data_base64([("SPCM", "10d")])
+
+        self.assertEqual(result, "encoded-plot")
+        labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
+        self.assertEqual(labels, ["SPY ($10.00 -> $11.00)", "SPCM ($10.00 -> $11.00)"])
+        plotted_values = [call.args[1].tolist() for call in mock_plt.plot.call_args_list]
+        for values in plotted_values:
+            self.assertEqual(len(values), 2)
+            self.assertAlmostEqual(values[0], 100.0)
+            self.assertAlmostEqual(values[1], 110.0)
+
+    @patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
+    @patch("handlers.ticker_handler.plt")
+    @patch("handlers.ticker_handler.yf.Ticker")
+    def test_plot_clips_spy_to_intraday_fallback_window(
+        self,
+        mock_ticker,
+        mock_plt,
+        mock_file_to_base64,
+    ):
+        spcm_daily = pd.DataFrame(
+            {"Close": [34.79, 38.26], "Volume": [1064400, 2795430]},
+            index=pd.to_datetime(["2026-06-15", "2026-06-16"], utc=True),
+        )
+        spcm_intraday = pd.DataFrame(
+            {"Close": [28.96, 38.13], "Volume": [55940, 178516]},
+            index=pd.to_datetime(["2026-06-15 10:30", "2026-06-16 15:30"], utc=True),
+        )
+        spy_intraday = pd.DataFrame(
+            {"Close": [599.0, 600.0, 601.0, 602.0], "Volume": [1, 1, 1, 1]},
+            index=pd.to_datetime(
+                [
+                    "2026-06-13 10:30",
+                    "2026-06-15 10:30",
+                    "2026-06-16 15:30",
+                    "2026-06-17 10:30",
+                ],
+                utc=True,
+            ),
+        )
+
+        spcm = MagicMock()
+        spcm.history.side_effect = [spcm_daily, spcm_intraday]
+        spy = MagicMock()
+        spy.history.return_value = spy_intraday
+        mock_ticker.side_effect = [spcm, spy]
+
+        result = plot_stock_data_base64([("SPCM", "1y")])
+
+        self.assertEqual(result, "encoded-plot")
+        plotted_indexes = [call.args[0].tolist() for call in mock_plt.plot.call_args_list]
+        self.assertEqual(plotted_indexes[0], spy_intraday.index[1:3].tolist())
+        self.assertEqual(plotted_indexes[1], spcm_intraday.index.tolist())
 
 
-def test_duration_to_timedelta_supports_days_weeks_months_and_years():
-    assert duration_to_timedelta("10d") == timedelta(days=10)
-    assert duration_to_timedelta("6w") == timedelta(weeks=6)
-    assert duration_to_timedelta("18mo") == timedelta(days=540)
-    assert duration_to_timedelta("2y") == timedelta(days=730)
-
-
-def test_get_history_options_uses_requested_range_and_hourly_intraday():
-    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
-
-    hourly_options = get_history_options("4d", now=now)
-    assert hourly_options == {
-        "start": now - timedelta(days=4),
-        "end": now,
-        "interval": "1h",
-    }
-
-    daily_options = get_history_options("10d", now=now)
-    assert daily_options == {
-        "start": now - timedelta(days=10),
-        "end": now,
-    }
-
-
-@patch("handlers.ticker_handler.file_to_base64", return_value="encoded-plot")
-@patch("handlers.ticker_handler.plt")
-@patch("handlers.ticker_handler.yf.Ticker")
-def test_plot_uses_longest_requested_range_and_prices_in_legend(mock_ticker, mock_plt, mock_file_to_base64):
-    hist = pd.DataFrame(
-        {"Close": [10.0, 12.0]},
-        index=pd.date_range("2026-06-01", periods=2, tz="UTC"),
-    )
-    ticker_instance = MagicMock()
-    ticker_instance.history.return_value = hist
-    mock_ticker.return_value = ticker_instance
-
-    result = plot_stock_data_base64([("AMD", "10d")])
-
-    assert result == "encoded-plot"
-    history_kwargs = ticker_instance.history.call_args.kwargs
-    assert set(history_kwargs) == {"start", "end"}
-    actual_range = history_kwargs["end"] - history_kwargs["start"]
-    assert timedelta(days=9, hours=23, minutes=59) < actual_range < timedelta(days=10, minutes=1)
-    assert mock_ticker.call_count == 2
-    assert mock_plt.text.call_count == 0
-    labels = [call.kwargs["label"] for call in mock_plt.plot.call_args_list]
-    assert labels == ["SPY ($10.00 → $12.00)", "AMD ($10.00 → $12.00)"]
+if __name__ == "__main__":
+    unittest.main()

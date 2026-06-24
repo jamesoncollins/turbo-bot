@@ -76,6 +76,32 @@ class GptHandlerImageModelTest(unittest.TestCase):
         self.assertEqual(response, {"message": "ok", "attachments": []})
         submit_mock.assert_called_once_with("draw a tiny robot", None, DEFAULT_IMAGE_MODEL)
 
+    def test_image_generation_returns_fallback_message_without_revised_prompt(self):
+        class ImageData:
+            b64_json = "abc123"
+            revised_prompt = None
+
+        class Response:
+            data = [ImageData()]
+
+        handler = GptHandler("#gpt.image draw a tiny robot")
+        self.assertTrue(handler.can_handle())
+
+        with patch("handlers.gpt_handler.client.images.generate", return_value=Response()):
+            response = handler.process_message("#gpt.image draw a tiny robot", None)
+
+        self.assertEqual(response, {"message": "Generated image attached.", "attachments": ["abc123"]})
+
+    def test_image_generation_session_key_returns_dict(self):
+        from handlers.gpt_handler import submit_gpt_image_gen
+
+        response = submit_gpt_image_gen("draw a tiny robot", session_key="chat")
+
+        self.assertEqual(
+            response,
+            {"message": "Image generation does not use conversation history.", "attachments": []},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
