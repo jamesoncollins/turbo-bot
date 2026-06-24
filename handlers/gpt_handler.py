@@ -451,7 +451,7 @@ def is_image_model(model_name: str) -> bool:
 
 def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL):
     if session_key:
-        return []
+        return {"message": "Image generation does not use conversation history.", "attachments": []}
 
     try:
         response = client.images.generate(
@@ -484,7 +484,11 @@ def submit_gpt_image_gen(user_input, session_key=None, model=DEFAULT_IMAGE_MODEL
     if revised_prompt is None and isinstance(image_data, dict):
         revised_prompt = image_data.get("revised_prompt")
 
-    return {"message": revised_prompt, "attachments": [image_b64] if image_b64 else []}
+    message = revised_prompt or "Generated image attached."
+    if not image_b64:
+        message = f"{message} No image data was returned by the image API."
+
+    return {"message": message, "attachments": [image_b64] if image_b64 else []}
 
 
 import requests
