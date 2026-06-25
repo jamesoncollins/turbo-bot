@@ -249,9 +249,9 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
     file_size_mb = int(probe['format']['size']) / (1024 * 1024)  # Convert size to MB
 
     # If the file is already MP4 and within the size limit, return the original file
-    #if file_format == "mov,mp4,m4a,3gp,3g2,mj2" and file_size_mb <= max_size_mb:
-    #    print(f"Skipping conversion: {input_file} is already an MP4 and under {max_size_mb} MB.")
-    #    return input_file
+    if file_format == "mov,mp4,m4a,3gp,3g2,mj2" and file_size_mb <= max_size_mb:
+        print(f"Skipping conversion: {input_file} is already an MP4 and under {max_size_mb} MB.")
+        return input_file
 
     # Get original video dimensions
     video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
