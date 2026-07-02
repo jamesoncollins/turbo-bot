@@ -23,23 +23,12 @@ class TwitterHandlerTest(TurboTestCase):
         super().setUp()
 
     async def assert_ytdlp_url_sends_attachment(self, url, receive_mock, send_mock):
-        with patch(
-            "handlers.twitter_handler.TwitterHandler._probe_download_info",
-            return_value={"formats": []},
-        ) as probe_mock, patch(
-            "handlers.twitter_handler.download_video",
-            return_value="video.mp4",
-        ) as download_mock, patch(
-            "handlers.twitter_handler.BaseHandler.file_to_base64",
-            return_value="encoded-video",
-        ):
-            receive_mock.define([url])
-            await self.run_bot()
+        receive_mock.define([url])
+        await self.run_bot()
 
         self.assertEqual(send_mock.call_count, 1)
         self.assertEqual(len(send_mock.call_args[1]["base64_attachments"]), 1)
-        probe_mock.assert_called_with(url)
-        download_mock.assert_called_once()
+        self.assertGreater(len(send_mock.call_args[1]["base64_attachments"][0]), 0)
 
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
