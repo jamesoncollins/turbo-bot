@@ -3,10 +3,10 @@ import sys
 import os
 current_dir = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_dir)
-path_to_append = os.path.join(current_dir, "../signalbot_local/")
+path_to_append = os.path.join(current_dir, "../signalbot_local/src/")
 if os.path.exists(path_to_append):
-    sys.path.append(path_to_append)
-    print(f"Appended {path_to_append} to sys.path")
+    sys.path.insert(0, path_to_append)
+    print(f"Prepended {path_to_append} to sys.path")
 else:
     print(f"Path {path_to_append} does not exist")
 
@@ -17,7 +17,7 @@ import os
 import tempfile
 from TurboTestCase import TurboTestCase
 from signalbot import Command, Context, triggered
-from signalbot.utils import chat, ChatTestCase, SendMessagesMock, ReceiveMessagesMock
+from signalbot.utils import mock_chat as chat, ChatTestCase, SendMessagesMock, ReceiveMessagesMock
 from run import (
     TurboBotCommand,
     LOGMSG,
@@ -50,7 +50,7 @@ class RunTest(TurboTestCase):
         self.assertEqual( "Machine:" in response , True)
         self.assertEqual( "Hostname:" in response , True)
         self.assertEqual( "OS:" in response , True)
-        
+
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
     async def test_golf(self, receive_mock, send_mock):
@@ -58,7 +58,7 @@ class RunTest(TurboTestCase):
         await self.run_bot()
         self.assertEqual(send_mock.call_count, 1)
         self.assertEqual( LOGMSG in send_mock.call_args_list[0].args[1] , True)
-        
+
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
     async def test_ticker(self, receive_mock, send_mock):

@@ -11,7 +11,7 @@ import base64
 key = os.environ.get("OPENAI_API_KEY", "")
 if key == "":
     warnings.warn("Warning...........No OPENAI_API_KEY provided")
-client = OpenAI(api_key=key)
+client = OpenAI(api_key=key or "missing-openai-api-key")
 
 DEFAULT_MODEL = "gpt-4.1"
 DEFAULT_IMAGE_MODEL = "gpt-image-1-mini"
