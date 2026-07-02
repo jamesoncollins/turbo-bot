@@ -11,9 +11,41 @@ from handlers.twitter_handler import (
     _stream_tail_download_ranges,
     download_video,
 )
+from utils.misc_utils import _mp4_video_bitrate, convert_to_mp4
 
 
 class TwitterHandlerFormatSelectionTest(unittest.TestCase):
+    def test_transcode_bitrate_uses_input_size_when_smaller_than_max(self):
+        input_size_bytes = 13 * 1024 * 1024
+        duration_seconds = 60
+
+        max_budget_bitrate = _mp4_video_bitrate(90 * 1024 * 1024, duration_seconds)
+        input_size_bitrate = _mp4_video_bitrate(input_size_bytes, duration_seconds)
+
+        self.assertEqual(input_size_bitrate, "1647k")
+        self.assertNotEqual(input_size_bitrate, max_budget_bitrate)
+
+    @patch("utils.misc_utils.os.path.getsize", return_value=12 * 1024 * 1024)
+    @patch("utils.misc_utils.ffmpeg")
+    def test_convert_to_mp4_targets_input_size_not_full_max_budget(self, ffmpeg_mock, _):
+        input_size_bytes = 13 * 1024 * 1024
+        ffmpeg_mock.probe.return_value = {
+            "format": {
+                "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+                "duration": "60",
+                "size": str(input_size_bytes),
+            },
+            "streams": [
+                {"codec_type": "video", "width": 640, "height": 360},
+            ],
+        }
+        ffmpeg_mock.input.return_value.output.return_value.run.return_value = None
+
+        convert_to_mp4("downloaded_video.mp4.in", "downloaded_video.mp4", 90)
+
+        output_kwargs = ffmpeg_mock.input.return_value.output.call_args.kwargs
+        self.assertEqual(output_kwargs["video_bitrate"], "1647k")
+
     def test_youtube_probe_uses_android_vr_client_for_split_formats(self):
         opts = _base_ydl_opts()
 
