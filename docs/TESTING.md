@@ -10,6 +10,18 @@ Run all tests with:
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
+The default test run keeps network-sensitive downloader behavior mocked. Live
+download checks for services such as Reddit, YouTube, Instagram, X/Twitter, and
+Bluesky are opt-in:
+
+```bash
+RUN_LIVE_DOWNLOAD_TESTS=1 scripts/test_local.sh
+```
+
+Use live downloader tests sparingly. They verify the actual third-party
+download code, but they can fail because of network issues, service changes,
+rate limits, or bot detection.
+
 ## Test infrastructure
 
 `tests/TurboTestCase.py` provides the shared bot test harness. Individual tests patch Signal API calls with mocks from `signalbot.utils`, especially:
@@ -42,6 +54,10 @@ Some existing tests and handlers may involve live external services or external 
 - Finance/ticker data through `yfinance`.
 
 These can fail because of network outages, API changes, rate limits, missing credentials, or missing system dependencies. When adding new tests for these areas, prefer mocking the service boundary unless the test is explicitly intended as an integration test.
+
+Downloader integration tests that intentionally hit live services should be
+guarded with `RUN_LIVE_DOWNLOAD_TESTS=1` so normal local and CI runs remain
+fast and deterministic.
 
 ## Required dependencies
 
