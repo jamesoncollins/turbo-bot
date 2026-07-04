@@ -2,6 +2,7 @@ from utils.misc_utils import *
 from utils.video_scrape_utils import *
 from redvid import Downloader
 
+import os
 import re
 import requests
 from urllib.parse import urlencode
@@ -80,50 +81,62 @@ def is_reddit_domain(msg):
         return None
  
 def download_reddit_video_tryall_b64(url):
+    urls_to_try = [url]
+    converted_url = convert_shareable_to_comments_link(url)
+    if converted_url and converted_url not in urls_to_try:
+        urls_to_try.append(converted_url)
 
-    try:
-        if (fname:=download_reddit_video(url)):
-            return file_to_base64(fname)
-    except:
-        pass
-    
-    try:
-        if (video_b64:=get_video_as_base64(url)):
-            return video_b64
-    except:
-        pass
-    
-    url = convert_shareable_to_comments_link(url)
-    
-    try:
-        if (fname:=download_reddit_video(url)):
-            return file_to_base64(fname)
-    except:
-        pass
-    
-    try:
-        if (video_b64:=get_video_as_base64(url)):
-            return video_b64
-    except:
-        pass
+    for candidate_url in urls_to_try:
+        try:
+            if (fname := download_reddit_video(candidate_url)):
+                return file_to_base64(fname)
+        except Exception as ex:
+            print(f"Reddit yt-dlp/redvid download failed: {ex}")
+
+        try:
+            if (video_b64 := get_video_as_base64(candidate_url)):
+                return video_b64
+        except Exception as ex:
+            print(f"Reddit HTML scrape download failed: {ex}")
     
     return None
 
 
 def download_reddit_video(url):
     fname = "reddit.mp4"
-    
+
+    if (yt_dlp_filename := download_reddit_video_with_ytdlp(url, fname)):
+        return yt_dlp_filename
+
+    return download_reddit_video_with_redvid(url, fname)
+
+
+def download_reddit_video_with_ytdlp(url, fname="reddit.mp4"):
+    try:
+        from handlers.twitter_handler import download_video
+
+        return download_video(
+            url,
+            max_filesize_mb=90,
+            suggested_filename=os.path.splitext(fname)[0],
+        )
+    except Exception as ex:
+        print(f"yt-dlp reddit download failed: {ex}")
+        return None
+
+
+def download_reddit_video_with_redvid(url, fname="reddit.mp4"):
     try:
         os.remove(fname)
-    except:
+    except FileNotFoundError:
         print('thats fine')
-    
+
     try:        
         reddit = Downloader(max_q=True) 
         reddit.url = url
         reddit.filename = fname
         reddit.download()
-        return "//root//git//turbo-bot//" + fname
+        return os.path.abspath(fname)
     except Exception as ex:
         print(ex)
         return None
