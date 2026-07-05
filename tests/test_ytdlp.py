@@ -16,6 +16,9 @@ from TurboTestCase import TurboTestCase
 from signalbot.utils import SendMessagesMock, ReceiveMessagesMock
 
 
+TEST_VIDEO_ATTACHMENT = "mock-video-attachment"
+
+
 class TwitterHandlerTest(TurboTestCase):
     def setUp(self):
         super().setUp()
@@ -39,7 +42,7 @@ class TwitterHandlerTest(TurboTestCase):
                 ) as download_video_mock, \
                 patch(
                     "handlers.twitter_handler.BaseHandler.file_to_base64",
-                    return_value="encoded-video",
+                    return_value=TEST_VIDEO_ATTACHMENT,
                 ):
             ydl = youtube_dl_cls.return_value
             ydl.extract_info.return_value = probe_info
@@ -54,7 +57,7 @@ class TwitterHandlerTest(TurboTestCase):
             stream_clip_seconds=None,
         )
         self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual(send_mock.call_args[1]["base64_attachments"], ["encoded-video"])
+        self.assertEqual(send_mock.call_args[1]["base64_attachments"], [TEST_VIDEO_ATTACHMENT])
 
     @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
     @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
@@ -115,16 +118,39 @@ class TwitterHandlerTest(TurboTestCase):
     async def test_reddit_url_routes_to_reddit_downloader(self, receive_mock, send_mock):
         with patch(
             "run.download_reddit_video_tryall_b64",
-            return_value="encoded-video",
-        ) as download_reddit_mock:
+            return_value=TEST_VIDEO_ATTACHMENT,
+        ) as download_reddit_mock, \
+                patch("utils.reddit_utils.requests.get") as get_mock:
+            response = get_mock.return_value
+            response.url = "https://www.reddit.com/r/TikTokCringe/comments/abc123/title/"
+            response.raise_for_status.return_value = None
+
             receive_mock.define(["https://www.reddit.com/r/TikTokCringe/s/Z3w1KP6KAc"])
             await self.run_bot()
 
         download_reddit_mock.assert_called_once_with(
-            "https://www.reddit.com/r/TikTokCringe/s/Z3w1KP6KAc"
+            "https://www.reddit.com/comments/abc123/"
         )
         self.assertEqual(send_mock.call_count, 1)
-        self.assertEqual(send_mock.call_args[1]["base64_attachments"], ["encoded-video"])
+        self.assertEqual(send_mock.call_args[1]["base64_attachments"], [TEST_VIDEO_ATTACHMENT])
+
+    @patch("signalbot.SignalAPI.send", new_callable=SendMessagesMock)
+    @patch("signalbot.SignalAPI.receive", new_callable=ReceiveMessagesMock)
+    async def test_old_reddit_url_routes_to_reddit_downloader(self, receive_mock, send_mock):
+        url = "https://old.reddit.com/r/WNBAgossips/comments/1ukm1y4/she_finally_had_enough/"
+
+        with patch(
+            "run.download_reddit_video_tryall_b64",
+            return_value=TEST_VIDEO_ATTACHMENT,
+        ) as download_reddit_mock:
+            receive_mock.define([url])
+            await self.run_bot()
+
+        download_reddit_mock.assert_called_once_with(
+            "https://www.reddit.com/comments/1ukm1y4/"
+        )
+        self.assertEqual(send_mock.call_count, 1)
+        self.assertEqual(send_mock.call_args[1]["base64_attachments"], [TEST_VIDEO_ATTACHMENT])
 
 if __name__ == "__main__":
     unittest.main()
