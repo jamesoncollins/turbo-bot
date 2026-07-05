@@ -16,3 +16,4 @@ __pycache__
 /.conda/
 /Miniforge3-Linux-x86_64.sh
 /tmp/ticker_history*/
+/test_output/

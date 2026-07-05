@@ -15,11 +15,13 @@ from unittest.mock import AsyncMock, patch
 import logging
 from signalbot import SignalBot, Command, Context, triggered
 from signalbot.utils import mock_chat as chat, ChatTestCase, SendMessagesMock, ReceiveMessagesMock
+from attachment_output import install_send_attachment_capture
 from run import TurboBotCommand, LOGMSG
 
 
 class TurboTestCase(unittest.IsolatedAsyncioTestCase, ChatTestCase):
     async def asyncSetUp(self):
+        install_send_attachment_capture(SendMessagesMock)
         await super().asyncSetUp()
         self.setup()
         group = {
