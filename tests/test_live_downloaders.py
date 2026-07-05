@@ -4,13 +4,17 @@ import os
 import unittest
 
 from handlers.twitter_handler import download_video
+from attachment_output import save_attachment_bytes
 from utils.reddit_utils import download_reddit_video_tryall_b64
 
 
 LIVE_DOWNLOAD_URLS = {
     "bsky": "https://bsky.app/profile/bubbaprog.lol/post/3lga5ktfrx22o",
     "instagram_reel": "https://www.instagram.com/reel/DZuD9sTMeZU/",
-    "reddit": "https://www.reddit.com/r/videos/comments/6rrwyj/that_small_heart_attack/",
+    "reddit": "https://www.reddit.com/r/videos/comments/6rrwyj/",
+    "reddit_slug": "https://www.reddit.com/r/videos/comments/6rrwyj/that_small_heart_attack/",
+    "reddit_share": "https://www.reddit.com/r/TikTokCringe/s/Z3w1KP6KAc",
+    "reddit_wnba_gossips": "https://old.reddit.com/r/WNBAgossips/comments/1ukm1y4/she_finally_had_enough/",
     "tiktok": "https://tiktok.com/@underrated.simpsons/video/7410898661741251873",
     "x": "https://x.com/SaveUSAKitty/status/1872667773484363883",
     "youtube": "https://www.youtube.com/watch?v=hj4TXUJadt4",
@@ -47,15 +51,42 @@ class LiveDownloaderTest(unittest.TestCase):
         )
 
         self.assert_downloaded_video_file(filename)
+        with open(filename, "rb") as video_file:
+            save_attachment_bytes(video_file.read(), message=suggested_filename)
 
-    def test_reddit_video_download_returns_valid_video_base64(self):
-        video_b64 = download_reddit_video_tryall_b64(LIVE_DOWNLOAD_URLS["reddit"])
+    def assert_reddit_downloads_video_base64(self, url, output_name):
+        video_b64 = download_reddit_video_tryall_b64(url)
 
         self.assertIsNotNone(video_b64)
         decoded = base64.b64decode(video_b64, validate=True)
 
         self.assertGreater(len(decoded), 1024)
         self.assertIn(b"ftyp", decoded[:64])
+        save_attachment_bytes(decoded, message=output_name)
+
+    def test_reddit_video_download_returns_valid_video_base64(self):
+        self.assert_reddit_downloads_video_base64(
+            LIVE_DOWNLOAD_URLS["reddit"],
+            "live_download_reddit",
+        )
+
+    def test_reddit_slug_video_download_returns_valid_video_base64(self):
+        self.assert_reddit_downloads_video_base64(
+            LIVE_DOWNLOAD_URLS["reddit_slug"],
+            "live_download_reddit_slug",
+        )
+
+    def test_reddit_share_video_download_returns_valid_video_base64(self):
+        self.assert_reddit_downloads_video_base64(
+            LIVE_DOWNLOAD_URLS["reddit_share"],
+            "live_download_reddit_share",
+        )
+
+    def test_old_reddit_wnba_gossips_video_download_returns_valid_video_base64(self):
+        self.assert_reddit_downloads_video_base64(
+            LIVE_DOWNLOAD_URLS["reddit_wnba_gossips"],
+            "live_download_reddit_wnba_gossips",
+        )
 
     def test_bsky_video_download_returns_video_file(self):
         self.assert_ytdlp_downloads_video(
