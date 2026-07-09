@@ -232,6 +232,33 @@ def _mp4_video_bitrate(target_size_bytes: int, duration_seconds: float, audio_bi
     return f"{max(round(target_total_kbps - audio_bitrate_kbps), 150)}k"
 
 
+def _is_mp4_container(format_name: str):
+    return "mp4" in {name.strip().lower() for name in format_name.split(",")}
+
+
+def _is_iphone_compatible_mp4(probe, max_size_mb: int, max_resolution: tuple):
+    format_info = probe["format"]
+    if not _is_mp4_container(format_info.get("format_name", "")):
+        return False
+
+    if int(format_info.get("size", 0)) > max_size_mb * 1024 * 1024:
+        return False
+
+    video_stream = next((stream for stream in probe["streams"] if stream["codec_type"] == "video"), None)
+    if not video_stream:
+        return False
+
+    if int(video_stream["width"]) > max_resolution[0] or int(video_stream["height"]) > max_resolution[1]:
+        return False
+
+    video_codec = video_stream.get("codec_name", "").lower()
+    if video_codec not in {"h264"}:
+        return False
+
+    audio_streams = [stream for stream in probe["streams"] if stream["codec_type"] == "audio"]
+    return all(stream.get("codec_name", "").lower() == "aac" for stream in audio_streams)
+
+
 def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_resolution: tuple = (1280, 720)):
     """
     Convert a video file to MP4 format while ensuring it does not exceed a specified file size
@@ -260,6 +287,9 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
 
     original_width = int(video_stream['width'])
     original_height = int(video_stream['height'])
+
+    if _is_iphone_compatible_mp4(probe, max_size_mb, max_resolution):
+        return input_file
 
     # Calculate target bitrate against the smaller of the upload limit and input
     # size. This keeps required iPhone-compatible transcoding from expanding small
