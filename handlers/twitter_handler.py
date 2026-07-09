@@ -86,49 +86,90 @@ def _format_filesize_bytes(fmt):
     return int(size or 0)
 
 
+def _is_h264_codec(codec):
+    return (codec or "").lower().split(".", 1)[0] in {"avc1", "avc3", "h264"}
+
+
+def _is_aac_codec(codec):
+    return (codec or "").lower().split(".", 1)[0] in {"mp4a", "aac"}
+
+
+def _is_iphone_compatible_format(fmt):
+    if fmt.get("ext") != "mp4":
+        return False
+
+    vcodec = fmt.get("vcodec")
+    acodec = fmt.get("acodec")
+    has_video = vcodec and vcodec != "none"
+    has_audio = acodec and acodec != "none"
+
+    if has_video and not _is_h264_codec(vcodec):
+        return False
+    if has_audio and not _is_aac_codec(acodec):
+        return False
+    return has_video or has_audio
+
+
+def _pick_largest_format_id(formats, max_bytes, compatible_only=False):
+    best_format = None
+    best_size = -1
+    for fmt in formats:
+        size = _format_filesize_bytes(fmt)
+        if not size or size > max_bytes:
+            continue
+        if compatible_only and not _is_iphone_compatible_format(fmt):
+            continue
+        if size > best_size:
+            best_format = fmt["format_id"]
+            best_size = size
+    return best_format
+
+
+def _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_only=False):
+    best_pair = None
+    best_pair_size = -1
+    for video_fmt in video_formats:
+        if video_fmt.get("ext") != "mp4":
+            continue
+        if compatible_only and not _is_h264_codec(video_fmt.get("vcodec")):
+            continue
+        for audio_fmt in audio_formats:
+            if audio_fmt.get("ext") != "m4a":
+                continue
+            if compatible_only and not _is_aac_codec(audio_fmt.get("acodec")):
+                continue
+            total_size = _format_filesize_bytes(video_fmt) + _format_filesize_bytes(audio_fmt)
+            if total_size <= max_bytes and total_size > best_pair_size:
+                best_pair = f'{video_fmt["format_id"]}+{audio_fmt["format_id"]}'
+                best_pair_size = total_size
+    return best_pair
+
+
 def _pick_best_download_format(formats, max_filesize_mb):
     max_bytes = max_filesize_mb * 1024 * 1024
 
-    best_muxed = None
-    best_muxed_size = -1
-    for fmt in formats:
-        size = _format_filesize_bytes(fmt)
-        has_video = fmt.get("vcodec") != "none"
-        has_audio = fmt.get("acodec") != "none"
-        if not (size and has_video and has_audio):
-            continue
-        if size <= max_bytes and size > best_muxed_size:
-            best_muxed = fmt["format_id"]
-            best_muxed_size = size
-
-    if best_muxed:
-        return best_muxed
-
+    muxed_formats = []
     video_formats = []
     audio_formats = []
     for fmt in formats:
         size = _format_filesize_bytes(fmt)
         if not size:
             continue
-        if fmt.get("vcodec") != "none" and fmt.get("acodec") == "none":
+        has_video = fmt.get("vcodec") != "none"
+        has_audio = fmt.get("acodec") != "none"
+        if has_video and has_audio:
+            muxed_formats.append(fmt)
+        elif has_video:
             video_formats.append(fmt)
-        elif fmt.get("acodec") != "none" and fmt.get("vcodec") == "none":
+        elif has_audio:
             audio_formats.append(fmt)
 
-    best_pair = None
-    best_pair_size = -1
-    for video_fmt in video_formats:
-        if video_fmt.get("ext") != "mp4":
-            continue
-        for audio_fmt in audio_formats:
-            if audio_fmt.get("ext") != "m4a":
-                continue
-            total_size = _format_filesize_bytes(video_fmt) + _format_filesize_bytes(audio_fmt)
-            if total_size <= max_bytes and total_size > best_pair_size:
-                best_pair = f'{video_fmt["format_id"]}+{audio_fmt["format_id"]}'
-                best_pair_size = total_size
-
-    return best_pair
+    return (
+        _pick_largest_format_id(muxed_formats, max_bytes, compatible_only=True)
+        or _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_only=True)
+        or _pick_largest_format_id(muxed_formats, max_bytes)
+        or _pick_best_format_pair(video_formats, audio_formats, max_bytes)
+    )
 
 
 def _live_status(info):
@@ -254,7 +295,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     else:
         print("No suitable format found. Downloading best quality and compressing if needed.")
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a][acodec^=mp4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'progress_hooks': [progress_hook],
             'outtmpl': f'{suggested_filename}.%(ext)s',
             'postprocessors': [{

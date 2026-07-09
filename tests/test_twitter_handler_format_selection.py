@@ -46,6 +46,49 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
         output_kwargs = ffmpeg_mock.input.return_value.output.call_args.kwargs
         self.assertEqual(output_kwargs["video_bitrate"], "1647k")
 
+
+    @patch("utils.misc_utils.ffmpeg")
+    def test_convert_to_mp4_skips_iphone_compatible_mp4(self, ffmpeg_mock):
+        ffmpeg_mock.probe.return_value = {
+            "format": {
+                "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+                "duration": "60",
+                "size": str(13 * 1024 * 1024),
+            },
+            "streams": [
+                {"codec_type": "video", "codec_name": "h264", "width": 640, "height": 360},
+                {"codec_type": "audio", "codec_name": "aac"},
+            ],
+        }
+
+        result = convert_to_mp4("downloaded_video.mp4.in", "downloaded_video.mp4", 90)
+
+        self.assertEqual(result, "downloaded_video.mp4.in")
+        ffmpeg_mock.input.assert_not_called()
+
+    @patch("utils.misc_utils.os.path.getsize", return_value=12 * 1024 * 1024)
+    @patch("utils.misc_utils.ffmpeg")
+    def test_convert_to_mp4_transcodes_mp4_with_unsupported_video_codec(self, ffmpeg_mock, _):
+        ffmpeg_mock.probe.return_value = {
+            "format": {
+                "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+                "duration": "60",
+                "size": str(13 * 1024 * 1024),
+            },
+            "streams": [
+                {"codec_type": "video", "codec_name": "av1", "width": 640, "height": 360},
+                {"codec_type": "audio", "codec_name": "aac"},
+            ],
+        }
+        ffmpeg_mock.input.return_value.output.return_value.run.return_value = None
+
+        result = convert_to_mp4("downloaded_video.mp4.in", "downloaded_video.mp4", 90)
+
+        self.assertEqual(result, "downloaded_video.mp4")
+        output_kwargs = ffmpeg_mock.input.return_value.output.call_args.kwargs
+        self.assertEqual(output_kwargs["vcodec"], "libx264")
+        self.assertEqual(output_kwargs["acodec"], "aac")
+
     def test_youtube_probe_uses_android_vr_client_for_split_formats(self):
         opts = _base_ydl_opts()
 
@@ -54,22 +97,33 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
             ["android", "android_vr"],
         )
 
-    def test_prefers_largest_muxed_format_under_limit(self):
+    def test_prefers_largest_compatible_muxed_format_under_limit(self):
         formats = [
-            {"format_id": "small", "filesize": 10 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},
-            {"format_id": "best", "filesize": 80 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},
-            {"format_id": "too_big", "filesize": 120 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},
+            {"format_id": "small", "ext": "mp4", "filesize": 10 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},
+            {"format_id": "best", "ext": "mp4", "filesize": 80 * 1024 * 1024, "vcodec": "avc1.64001f", "acodec": "mp4a.40.2"},
+            {"format_id": "larger_av1", "ext": "mp4", "filesize": 85 * 1024 * 1024, "vcodec": "av01", "acodec": "mp4a"},
+            {"format_id": "too_big", "ext": "mp4", "filesize": 120 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},
         ]
 
         self.assertEqual(_pick_best_download_format(formats, 90), "best")
 
-    def test_falls_back_to_mp4_video_plus_m4a_audio_pair_under_limit(self):
+    def test_falls_back_to_compatible_mp4_video_plus_m4a_audio_pair_under_limit(self):
         formats = [
             {"format_id": "137", "ext": "mp4", "filesize": 100 * 1024 * 1024, "vcodec": "avc1", "acodec": "none"},
             {"format_id": "399", "ext": "mp4", "filesize": 60 * 1024 * 1024, "vcodec": "av01", "acodec": "none"},
+            {"format_id": "398", "ext": "mp4", "filesize": 50 * 1024 * 1024, "vcodec": "avc1.4d401f", "acodec": "none"},
             {"format_id": "248", "ext": "webm", "filesize": 50 * 1024 * 1024, "vcodec": "vp9", "acodec": "none"},
-            {"format_id": "140", "ext": "m4a", "filesize": 20 * 1024 * 1024, "vcodec": "none", "acodec": "mp4a"},
+            {"format_id": "140", "ext": "m4a", "filesize": 20 * 1024 * 1024, "vcodec": "none", "acodec": "mp4a.40.2"},
             {"format_id": "251", "ext": "webm", "filesize": 10 * 1024 * 1024, "vcodec": "none", "acodec": "opus"},
+        ]
+
+        self.assertEqual(_pick_best_download_format(formats, 90), "398+140")
+
+    def test_falls_back_to_incompatible_format_when_no_compatible_choice_fits(self):
+        formats = [
+            {"format_id": "137", "ext": "mp4", "filesize": 100 * 1024 * 1024, "vcodec": "avc1", "acodec": "none"},
+            {"format_id": "399", "ext": "mp4", "filesize": 60 * 1024 * 1024, "vcodec": "av01", "acodec": "none"},
+            {"format_id": "140", "ext": "m4a", "filesize": 20 * 1024 * 1024, "vcodec": "none", "acodec": "mp4a"},
         ]
 
         self.assertEqual(_pick_best_download_format(formats, 90), "399+140")
