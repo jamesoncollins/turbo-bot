@@ -16,6 +16,20 @@ class FilenameCollectorPP(yt_dlp.postprocessor.common.PostProcessor):
         return [], information
 
 STREAM_CLIP_SECONDS = 60
+DEFAULT_SIGNAL_ATTACHMENT_MB = 60
+
+
+def _signal_attachment_max_filesize_mb():
+    raw_limit = os.environ.get("YTDLP_SIGNAL_ATTACHMENT_MB")
+    if raw_limit is None:
+        return DEFAULT_SIGNAL_ATTACHMENT_MB
+
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        return DEFAULT_SIGNAL_ATTACHMENT_MB
+
+    return limit if limit > 0 else DEFAULT_SIGNAL_ATTACHMENT_MB
 
 
 class TwitterHandler(BaseHandler):
@@ -60,6 +74,7 @@ class TwitterHandler(BaseHandler):
         is_stream = _is_live_stream(info)
         video_content = download_video(
             url,
+            max_filesize_mb=_signal_attachment_max_filesize_mb(),
             info=None if is_stream else info,
             stream_clip_seconds=STREAM_CLIP_SECONDS if is_stream else None,
         )
@@ -79,11 +94,44 @@ class TwitterHandler(BaseHandler):
         return "yt_dlp Handler"
 
 
-def _format_filesize_bytes(fmt):
+def _format_filesize_bytes(fmt, duration=None):
     size = fmt.get("filesize")
     if size is None:
         size = fmt.get("filesize_approx")
+    if size is None and duration and fmt.get("tbr"):
+        size = float(fmt["tbr"]) * 1000 * float(duration) / 8
     return int(size or 0)
+
+
+def _format_quality_score(fmt):
+    tbr = float(fmt.get("tbr") or fmt.get("vbr") or fmt.get("abr") or 0)
+    width = int(fmt.get("width") or 0)
+    height = int(fmt.get("height") or 0)
+    return int(tbr * 1000) + width * height
+
+
+def _format_has_video(fmt):
+    vcodec = fmt.get("vcodec")
+    if vcodec is not None:
+        return vcodec != "none"
+
+    video_ext = fmt.get("video_ext")
+    if video_ext is not None:
+        return video_ext != "none"
+
+    return bool(fmt.get("width") or fmt.get("height"))
+
+
+def _format_has_audio(fmt):
+    acodec = fmt.get("acodec")
+    if acodec is not None:
+        return acodec != "none"
+
+    audio_ext = fmt.get("audio_ext")
+    if audio_ext is not None:
+        return audio_ext != "none"
+
+    return bool(fmt.get("asr") or fmt.get("audio_channels"))
 
 
 def _is_h264_codec(codec):
@@ -100,8 +148,8 @@ def _is_iphone_compatible_format(fmt):
 
     vcodec = fmt.get("vcodec")
     acodec = fmt.get("acodec")
-    has_video = vcodec and vcodec != "none"
-    has_audio = acodec and acodec != "none"
+    has_video = _format_has_video(fmt)
+    has_audio = _format_has_audio(fmt)
 
     if has_video and not _is_h264_codec(vcodec):
         return False
@@ -110,24 +158,27 @@ def _is_iphone_compatible_format(fmt):
     return has_video or has_audio
 
 
-def _pick_largest_format_id(formats, max_bytes, compatible_only=False):
+def _pick_largest_format_id(formats, max_bytes, compatible_only=False, duration=None):
     best_format = None
-    best_size = -1
+    best_score = -1
     for fmt in formats:
-        size = _format_filesize_bytes(fmt)
-        if not size or size > max_bytes:
+        size = _format_filesize_bytes(fmt, duration)
+        if size > max_bytes:
             continue
         if compatible_only and not _is_iphone_compatible_format(fmt):
             continue
-        if size > best_size:
+        score = size or _format_quality_score(fmt)
+        if not score:
+            continue
+        if score > best_score:
             best_format = fmt["format_id"]
-            best_size = size
+            best_score = score
     return best_format
 
 
-def _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_only=False):
+def _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_only=False, duration=None):
     best_pair = None
-    best_pair_size = -1
+    best_pair_score = -1
     for video_fmt in video_formats:
         if video_fmt.get("ext") != "mp4":
             continue
@@ -138,25 +189,32 @@ def _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_o
                 continue
             if compatible_only and not _is_aac_codec(audio_fmt.get("acodec")):
                 continue
-            total_size = _format_filesize_bytes(video_fmt) + _format_filesize_bytes(audio_fmt)
-            if total_size <= max_bytes and total_size > best_pair_size:
+            video_size = _format_filesize_bytes(video_fmt, duration)
+            audio_size = _format_filesize_bytes(audio_fmt, duration)
+            total_size = video_size + audio_size
+            if total_size and total_size > max_bytes:
+                continue
+            score = total_size or (_format_quality_score(video_fmt) + _format_quality_score(audio_fmt))
+            if not score:
+                continue
+            if score > best_pair_score:
                 best_pair = f'{video_fmt["format_id"]}+{audio_fmt["format_id"]}'
-                best_pair_size = total_size
+                best_pair_score = score
     return best_pair
 
 
-def _pick_best_download_format(formats, max_filesize_mb):
+def _pick_best_download_format(formats, max_filesize_mb, duration=None):
     max_bytes = max_filesize_mb * 1024 * 1024
 
     muxed_formats = []
     video_formats = []
     audio_formats = []
     for fmt in formats:
-        size = _format_filesize_bytes(fmt)
-        if not size:
+        size = _format_filesize_bytes(fmt, duration)
+        if not size and not _format_quality_score(fmt):
             continue
-        has_video = fmt.get("vcodec") != "none"
-        has_audio = fmt.get("acodec") != "none"
+        has_video = _format_has_video(fmt)
+        has_audio = _format_has_audio(fmt)
         if has_video and has_audio:
             muxed_formats.append(fmt)
         elif has_video:
@@ -165,10 +223,10 @@ def _pick_best_download_format(formats, max_filesize_mb):
             audio_formats.append(fmt)
 
     return (
-        _pick_largest_format_id(muxed_formats, max_bytes, compatible_only=True)
-        or _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_only=True)
-        or _pick_largest_format_id(muxed_formats, max_bytes)
-        or _pick_best_format_pair(video_formats, audio_formats, max_bytes)
+        _pick_largest_format_id(muxed_formats, max_bytes, compatible_only=True, duration=duration)
+        or _pick_best_format_pair(video_formats, audio_formats, max_bytes, compatible_only=True, duration=duration)
+        or _pick_largest_format_id(muxed_formats, max_bytes, duration=duration)
+        or _pick_best_format_pair(video_formats, audio_formats, max_bytes, duration=duration)
     )
 
 
@@ -244,7 +302,7 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
 
     def filesize_limiter(info_dict, *args, **kwargs):
         max_max_filesize_mb = 1500
-        filesize = info_dict.get('filesize', 0) or info_dict.get('filesize_approx', 0)
+        filesize = info_dict.get('filesize') or info_dict.get('filesize_approx') or 0
         filesize = int(filesize)
         if filesize > max_max_filesize_mb * 1024 * 1024:
             raise FilesizeLimitError("File size exceeds limit!")
@@ -265,7 +323,11 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
         info = ydl.extract_info(url, download=False)
 
     formats = info.get("formats", [])
-    selected_format = _pick_best_download_format(formats, max_filesize_mb)
+    selected_format = _pick_best_download_format(
+        formats,
+        max_filesize_mb,
+        duration=info.get("duration"),
+    )
 
     stream_range_opts = {}
     if stream_clip_seconds:
@@ -346,5 +408,3 @@ def download_video(url, max_filesize_mb=90, suggested_filename="downloaded_video
     os.rename(output_fname, actual_filename)
 
     return actual_filename
-
-

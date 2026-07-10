@@ -53,6 +53,7 @@ class TwitterHandlerTest(TurboTestCase):
         ydl.extract_info.assert_called_once_with(url, download=False)
         download_video_mock.assert_called_once_with(
             url,
+            max_filesize_mb=60,
             info=probe_info,
             stream_clip_seconds=None,
         )

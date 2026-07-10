@@ -23,10 +23,12 @@ Older project notes referred to `secrets.txt` or `secrets.sh`; the current launc
 ```bash
 export SIGNAL_API_URL="signal-cli:8181"
 export BOT_NUMBER="+15555555555"
+export YTDLP_SIGNAL_ATTACHMENT_MB="60"
 ```
 
 - `SIGNAL_API_URL`: URL or host:port for the signal-cli REST API.
 - `BOT_NUMBER`: registered Signal phone number for the bot.
+- `YTDLP_SIGNAL_ATTACHMENT_MB`: optional target size for yt-dlp video replies before base64 encoding. Defaults to `60` MB.
 
 ### Message allow/ignore controls
 

@@ -292,6 +292,10 @@ class TurboBotCommand(Command):
                         try:
                             await c.reply(  LOGMSG + returnMsg, base64_attachments=returnAttachments )
                         except Exception as e:
+                            print(
+                                f"Failed to send signal message: {e!r}; "
+                                f"cause: {getattr(e, '__cause__', None)!r}"
+                            )
                             await c.reply(  LOGMSG + returnMsg + "failed to send signal message" )
                 except Exception as e:
                     print(f"Handler {handler_name} exception: {e}")

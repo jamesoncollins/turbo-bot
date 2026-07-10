@@ -8,6 +8,7 @@ from handlers.twitter_handler import (
     _is_live_stream,
     _is_unavailable_stream,
     _pick_best_download_format,
+    _signal_attachment_max_filesize_mb,
     _stream_tail_download_ranges,
     download_video,
 )
@@ -97,6 +98,14 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
             ["android", "android_vr"],
         )
 
+    def test_signal_attachment_limit_defaults_to_normal_bot_target_size(self):
+        with patch.dict("handlers.twitter_handler.os.environ", {}, clear=True):
+            self.assertEqual(_signal_attachment_max_filesize_mb(), 60)
+
+    def test_signal_attachment_limit_can_be_overridden(self):
+        with patch.dict("handlers.twitter_handler.os.environ", {"YTDLP_SIGNAL_ATTACHMENT_MB": "12"}):
+            self.assertEqual(_signal_attachment_max_filesize_mb(), 12)
+
     def test_prefers_largest_compatible_muxed_format_under_limit(self):
         formats = [
             {"format_id": "small", "ext": "mp4", "filesize": 10 * 1024 * 1024, "vcodec": "avc1", "acodec": "mp4a"},
@@ -128,6 +137,88 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
 
         self.assertEqual(_pick_best_download_format(formats, 90), "399+140")
 
+    def test_uses_bitrate_estimate_when_formats_do_not_report_filesize(self):
+        formats = [
+            {
+                "format_id": "dash-video",
+                "ext": "mp4",
+                "tbr": 294.306,
+                "width": 1080,
+                "height": 1920,
+                "vcodec": "vp09.00.40.08.00.01.01.01.00",
+                "acodec": "none",
+            },
+            {
+                "format_id": "dash-audio",
+                "ext": "m4a",
+                "tbr": 78.57,
+                "vcodec": "none",
+                "acodec": "mp4a.40.5",
+            },
+        ]
+
+        self.assertEqual(
+            _pick_best_download_format(formats, 90, duration=57.05),
+            "dash-video+dash-audio",
+        )
+
+    def test_uses_bitrate_rank_when_filesize_and_duration_are_missing(self):
+        formats = [
+            {
+                "format_id": "lower-video",
+                "ext": "mp4",
+                "tbr": 224.386,
+                "width": 720,
+                "height": 1280,
+                "vcodec": "vp09.00.31.08.00.01.01.01.00",
+                "acodec": "none",
+            },
+            {
+                "format_id": "higher-video",
+                "ext": "mp4",
+                "tbr": 294.306,
+                "width": 1080,
+                "height": 1920,
+                "vcodec": "vp09.00.40.08.00.01.01.01.00",
+                "acodec": "none",
+            },
+            {
+                "format_id": "dash-audio",
+                "ext": "m4a",
+                "tbr": 78.57,
+                "vcodec": "none",
+                "acodec": "mp4a.40.5",
+            },
+        ]
+
+        self.assertEqual(
+            _pick_best_download_format(formats, 90),
+            "higher-video+dash-audio",
+        )
+
+    def test_uses_video_and_audio_ext_when_codecs_are_missing(self):
+        formats = [
+            {
+                "format_id": "unknown-video",
+                "ext": "mp4",
+                "video_ext": "mp4",
+                "audio_ext": "none",
+                "tbr": 224.386,
+            },
+            {
+                "format_id": "dash-audio",
+                "ext": "m4a",
+                "video_ext": "none",
+                "audio_ext": "m4a",
+                "tbr": 78.57,
+            },
+        ]
+
+        self.assertEqual(
+            _pick_best_download_format(formats, 90, duration=57.05),
+            "unknown-video+dash-audio",
+        )
+
     def test_returns_none_when_no_under_limit_choice_exists(self):
         formats = [
             {"format_id": "137", "ext": "mp4", "filesize": 100 * 1024 * 1024, "vcodec": "avc1", "acodec": "none"},
@@ -155,6 +246,7 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
         self.assertEqual(ydl.extract_info.call_count, 1)
         download_video_mock.assert_called_once_with(
             "https://example.com/video",
+            max_filesize_mb=60,
             info=probe_info,
             stream_clip_seconds=None,
         )
@@ -178,6 +270,7 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
 
         download_video_mock.assert_called_once_with(
             "https://www.youtube.com/watch?v=live",
+            max_filesize_mb=60,
             info=None,
             stream_clip_seconds=STREAM_CLIP_SECONDS,
         )
@@ -246,6 +339,46 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
         self.assertTrue(ydl_opts["live_from_start"])
         self.assertFalse(ydl_opts["force_keyframes_at_cuts"])
         self.assertTrue(callable(ydl_opts["download_ranges"]))
+
+    @patch("handlers.twitter_handler.os.rename")
+    @patch("handlers.twitter_handler.convert_to_mp4", return_value="downloaded_video.mp4.in")
+    @patch("handlers.twitter_handler.os.listdir", return_value=[])
+    @patch("handlers.twitter_handler.yt_dlp.YoutubeDL")
+    def test_download_video_size_filter_allows_missing_filesize(
+        self, youtube_dl_cls, _, __, ___
+    ):
+        ydl = MagicMock()
+        ydl.__enter__.return_value = ydl
+        ydl.__exit__.return_value = None
+        ydl.extract_info.return_value = {"filepath": "downloaded_video.mp4"}
+        youtube_dl_cls.return_value = ydl
+
+        download_video(
+            "https://www.instagram.com/reel/DZuD9sTMeZU/",
+            info={
+                "formats": [
+                    {
+                        "format_id": "dash-video",
+                        "ext": "mp4",
+                        "tbr": 294.306,
+                        "width": 1080,
+                        "height": 1920,
+                        "vcodec": "vp09.00.40.08.00.01.01.01.00",
+                        "acodec": "none",
+                    },
+                    {
+                        "format_id": "dash-audio",
+                        "ext": "m4a",
+                        "tbr": 78.57,
+                        "vcodec": "none",
+                        "acodec": "mp4a.40.5",
+                    },
+                ]
+            },
+        )
+
+        ydl_opts = youtube_dl_cls.call_args.args[0]
+        ydl_opts["match_filter"]({"filesize": None, "filesize_approx": None})
 
 
 if __name__ == "__main__":
