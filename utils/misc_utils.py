@@ -227,6 +227,38 @@ def get_current_branch_name():
         return None
 
 
+def _mp4_video_bitrate(target_size_bytes: int, duration_seconds: float, audio_bitrate_kbps: int = 128):
+    target_total_kbps = (target_size_bytes * 8) / duration_seconds / 1024
+    return f"{max(round(target_total_kbps - audio_bitrate_kbps), 150)}k"
+
+
+def _is_mp4_container(format_name: str):
+    return "mp4" in {name.strip().lower() for name in format_name.split(",")}
+
+
+def _is_iphone_compatible_mp4(probe, max_size_mb: int, max_resolution: tuple):
+    format_info = probe["format"]
+    if not _is_mp4_container(format_info.get("format_name", "")):
+        return False
+
+    if int(format_info.get("size", 0)) > max_size_mb * 1024 * 1024:
+        return False
+
+    video_stream = next((stream for stream in probe["streams"] if stream["codec_type"] == "video"), None)
+    if not video_stream:
+        return False
+
+    if int(video_stream["width"]) > max_resolution[0] or int(video_stream["height"]) > max_resolution[1]:
+        return False
+
+    video_codec = video_stream.get("codec_name", "").lower()
+    if video_codec not in {"h264"}:
+        return False
+
+    audio_streams = [stream for stream in probe["streams"] if stream["codec_type"] == "audio"]
+    return all(stream.get("codec_name", "").lower() == "aac" for stream in audio_streams)
+
+
 def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_resolution: tuple = (1280, 720)):
     """
     Convert a video file to MP4 format while ensuring it does not exceed a specified file size
@@ -256,16 +288,16 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
     original_width = int(video_stream['width'])
     original_height = int(video_stream['height'])
 
-    # Calculate target bitrate (bits per second) to fit within max size
-    max_size_bytes = max_size_mb * 1024 * 1024
-    bitrate = (max_size_bytes * 8) / duration  # bits per second
+    if _is_iphone_compatible_mp4(probe, max_size_mb, max_resolution):
+        return input_file
 
-    # Ensure a minimum bitrate threshold
-    #min_bitrate = 150000  # 150 kbps
-    #bitrate = max(bitrate, min_bitrate)
-    
-    bitrate = bitrate / 1024
-    bitrate = str(round(bitrate)-128) + "k"
+    # Calculate target bitrate against the smaller of the upload limit and input
+    # size. This keeps required iPhone-compatible transcoding from expanding small
+    # downloads up to the much larger max file size budget.
+    max_size_bytes = max_size_mb * 1024 * 1024
+    input_size_bytes = int(probe['format']['size'])
+    target_size_bytes = min(max_size_bytes, input_size_bytes)
+    bitrate = _mp4_video_bitrate(target_size_bytes, duration)
 
     # Adjust resolution if it exceeds max_resolution
     target_width, target_height = original_width, original_height
@@ -288,6 +320,21 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
         vf=f"scale={target_width}:{target_height}",
         format="mp4"
     ).run(overwrite_output=True)
+
+    if os.path.getsize(output_file) > input_size_bytes:
+        lower_bitrate = _mp4_video_bitrate(int(input_size_bytes * 0.90), duration)
+        ffmpeg.input(input_file).output(
+            output_file,
+            vcodec="libx264",
+            acodec="aac",
+            video_bitrate=lower_bitrate,
+            audio_bitrate="128k",
+            vf=f"scale={target_width}:{target_height}",
+            format="mp4"
+        ).run(overwrite_output=True)
+
+    if os.path.getsize(output_file) > input_size_bytes:
+        raise ValueError("Transcoded MP4 is larger than the original download.")
 
     return output_file
 
