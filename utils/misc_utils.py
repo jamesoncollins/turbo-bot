@@ -321,21 +321,6 @@ def convert_to_mp4(input_file: str, output_file: str, max_size_mb: int, max_reso
         format="mp4"
     ).run(overwrite_output=True)
 
-    if os.path.getsize(output_file) > input_size_bytes:
-        lower_bitrate = _mp4_video_bitrate(int(input_size_bytes * 0.90), duration)
-        ffmpeg.input(input_file).output(
-            output_file,
-            vcodec="libx264",
-            acodec="aac",
-            video_bitrate=lower_bitrate,
-            audio_bitrate="128k",
-            vf=f"scale={target_width}:{target_height}",
-            format="mp4"
-        ).run(overwrite_output=True)
-
-    if os.path.getsize(output_file) > input_size_bytes:
-        raise ValueError("Transcoded MP4 is larger than the original download.")
-
     return output_file
 
 # Example usage:
