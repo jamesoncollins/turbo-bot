@@ -90,6 +90,29 @@ class TwitterHandlerFormatSelectionTest(unittest.TestCase):
         self.assertEqual(output_kwargs["vcodec"], "libx264")
         self.assertEqual(output_kwargs["acodec"], "aac")
 
+    @patch("utils.misc_utils.os.path.getsize", return_value=14 * 1024 * 1024)
+    @patch("utils.misc_utils.ffmpeg")
+    def test_convert_to_mp4_allows_transcode_larger_than_original(self, ffmpeg_mock, _):
+        ffmpeg_mock.probe.return_value = {
+            "format": {
+                "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+                "duration": "60",
+                "size": str(13 * 1024 * 1024),
+            },
+            "streams": [
+                {"codec_type": "video", "codec_name": "vp9", "width": 640, "height": 360},
+                {"codec_type": "audio", "codec_name": "aac"},
+            ],
+        }
+        ffmpeg_mock.input.return_value.output.return_value.run.return_value = None
+
+        result = convert_to_mp4("downloaded_video.mp4.in", "downloaded_video.mp4", 90)
+
+        self.assertEqual(result, "downloaded_video.mp4")
+        ffmpeg_mock.input.return_value.output.return_value.run.assert_called_once_with(
+            overwrite_output=True
+        )
+
     def test_youtube_probe_uses_android_vr_client_for_split_formats(self):
         opts = _base_ydl_opts()
 
