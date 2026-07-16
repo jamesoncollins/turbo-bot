@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from utils.reddit_utils import (
     download_reddit_video,
+    download_reddit_video_tryall_b64,
     download_reddit_video_with_redvid,
     is_reddit_domain,
     normalize_reddit_url,
@@ -140,6 +141,43 @@ class RedditUtilsTest(unittest.TestCase):
             )
 
         self.assertEqual(filename, "/repo/reddit.mp4")
+
+    @patch("utils.reddit_utils.Downloader")
+    def test_redvid_fallback_handles_redvid_base_exception(self, downloader_cls):
+        downloader = downloader_cls.return_value
+        downloader.download.side_effect = BaseException("Incorrect URL format")
+
+        with patch("utils.reddit_utils.os.remove"):
+            self.assertIsNone(
+                download_reddit_video_with_redvid(
+                    "https://www.reddit.com/comments/6rrwyj/",
+                    "reddit.mp4",
+                )
+            )
+
+    @patch("utils.reddit_utils.get_video_as_base64", return_value=None)
+    @patch("utils.reddit_utils.download_reddit_video", side_effect=Exception("yt-dlp failed"))
+    def test_tryall_b64_handles_downloader_exception(self, download_mock, scrape_mock):
+        self.assertIsNone(download_reddit_video_tryall_b64("https://redd.it/6rrwyj"))
+        self.assertEqual(
+            [call.args[0] for call in download_mock.call_args_list],
+            ["https://www.reddit.com/comments/6rrwyj/", "https://redd.it/6rrwyj"],
+        )
+        self.assertEqual(
+            [call.args[0] for call in scrape_mock.call_args_list],
+            ["https://www.reddit.com/comments/6rrwyj/", "https://redd.it/6rrwyj"],
+        )
+
+    @patch("utils.reddit_utils.Downloader")
+    def test_redvid_fallback_reraises_shutdown_exceptions(self, downloader_cls):
+        downloader = downloader_cls.return_value
+        downloader.download.side_effect = KeyboardInterrupt()
+
+        with patch("utils.reddit_utils.os.remove"), self.assertRaises(KeyboardInterrupt):
+            download_reddit_video_with_redvid(
+                "https://www.reddit.com/comments/6rrwyj/",
+                "reddit.mp4",
+            )
 
 
 if __name__ == "__main__":

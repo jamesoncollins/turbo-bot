@@ -77,6 +77,10 @@ def is_reddit_domain(msg):
         #print("is NOT reddit url")
         return None
  
+def is_shutdown_exception(ex):
+    return isinstance(ex, (KeyboardInterrupt, SystemExit, GeneratorExit))
+
+
 def download_reddit_video_tryall_b64(url):
     normalized_url = normalize_reddit_url(url)
     urls_to_try = [normalized_url or url]
@@ -136,7 +140,9 @@ def download_reddit_video_with_redvid(url, fname="reddit.mp4"):
         reddit.filename = fname
         reddit.download()
         return os.path.abspath(fname)
-    except Exception as ex:
+    except BaseException as ex:
+        if is_shutdown_exception(ex):
+            raise
         print(ex)
         return None
         
