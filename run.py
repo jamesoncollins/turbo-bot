@@ -241,7 +241,13 @@ class TurboBotCommand(Command):
             return
         elif (url := is_reddit_domain(msg)):
             print("is reddit url")
-            video_b64 = download_reddit_video_tryall_b64(url)            
+            try:
+                video_b64 = download_reddit_video_tryall_b64(url)
+            except BaseException as ex:
+                if is_shutdown_exception(ex):
+                    raise
+                print(f"Reddit download failed without crashing bot: {ex}")
+                video_b64 = None
             if (video_b64):
                 await c.reply(  LOGMSG + "Reddit URL: " + url, base64_attachments=[video_b64])
         elif msg == "#":
